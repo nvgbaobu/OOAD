@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" pages="2">
   <diagram name="BFD" id="PROLCag9IQJRi1n5ff2I">
-    <mxGraphModel dx="3214" dy="1327" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="light-dark(#FFFFFF,#061211)" backgroundImage="{&quot;src&quot;:&quot;data:page/id,oAADFXl2nnNC1lTOV03P&quot;}" math="0" shadow="0">
+    <mxGraphModel dx="1916" dy="699" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="light-dark(#FFFFFF,#061211)" backgroundImage="{&quot;src&quot;:&quot;data:page/id,oAADFXl2nnNC1lTOV03P&quot;}" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -269,17 +269,14 @@
         <mxCell id="r5_fMunJo_kKqDOxNcXM-48" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Thiết lập thông tin cửa hàng" vertex="1">
           <mxGeometry height="60" width="140" x="1240" y="410" as="geometry" />
         </mxCell>
-        <mxCell id="r5_fMunJo_kKqDOxNcXM-49" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Cấu hình thuế và thanh toán" vertex="1">
+        <mxCell id="r5_fMunJo_kKqDOxNcXM-50" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Quản lý tài khoản và phân quyền" vertex="1">
           <mxGeometry height="60" width="140" x="1240" y="490" as="geometry" />
         </mxCell>
-        <mxCell id="r5_fMunJo_kKqDOxNcXM-50" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Quản lý tài khoản và phân quyền" vertex="1">
+        <mxCell id="r5_fMunJo_kKqDOxNcXM-51" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Theo dõi nhật ký" vertex="1">
           <mxGeometry height="60" width="140" x="1240" y="570" as="geometry" />
         </mxCell>
-        <mxCell id="r5_fMunJo_kKqDOxNcXM-51" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Theo dõi nhật ký" vertex="1">
-          <mxGeometry height="60" width="140" x="1240" y="650" as="geometry" />
-        </mxCell>
         <mxCell id="r5_fMunJo_kKqDOxNcXM-52" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Sao lưu và phục hồi" vertex="1">
-          <mxGeometry height="60" width="140" x="1240" y="730" as="geometry" />
+          <mxGeometry height="60" width="140" x="1240" y="650" as="geometry" />
         </mxCell>
         <mxCell id="r5_fMunJo_kKqDOxNcXM-58" edge="1" parent="1" style="endArrow=none;html=1;rounded=0;entryX=0;entryY=1;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" value="">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
@@ -522,15 +519,6 @@
             </Array>
             <mxPoint x="1240" y="680" as="sourcePoint" />
             <mxPoint x="1220" y="380" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="r5_fMunJo_kKqDOxNcXM-85" edge="1" parent="1" style="endArrow=none;html=1;rounded=0;entryX=0;entryY=1;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="gVccbPNnzgAW1WOfRjG5-12" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <Array as="points">
-              <mxPoint x="1220" y="760" />
-            </Array>
-            <mxPoint x="1240" y="760" as="sourcePoint" />
-            <mxPoint x="1220" y="460" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="r5_fMunJo_kKqDOxNcXM-86" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Cấu hình hạng thành viên" vertex="1">
