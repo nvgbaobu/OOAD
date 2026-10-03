@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" pages="2">
   <diagram name="BFD" id="PROLCag9IQJRi1n5ff2I">
-    <mxGraphModel dx="2567" dy="1447" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="light-dark(#FFFFFF,#061211)" backgroundImage="{&quot;src&quot;:&quot;data:page/id,oAADFXl2nnNC1lTOV03P&quot;}" math="0" shadow="0">
+    <mxGraphModel dx="1907" dy="798" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="light-dark(#FFFFFF,#061211)" backgroundImage="{&quot;src&quot;:&quot;data:page/id,oAADFXl2nnNC1lTOV03P&quot;}" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -146,9 +146,6 @@
         <mxCell id="r5_fMunJo_kKqDOxNcXM-14" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Đăng nhập hệ thống" vertex="1">
           <mxGeometry height="60" width="140" x="-560" y="410" as="geometry" />
         </mxCell>
-        <mxCell id="r5_fMunJo_kKqDOxNcXM-15" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Quản lý phiên làm việc" vertex="1">
-          <mxGeometry height="60" width="140" x="-560" y="490" as="geometry" />
-        </mxCell>
         <mxCell id="r5_fMunJo_kKqDOxNcXM-17" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=0;fontSize=14;" value="Cập nhật thông tin sách" vertex="1">
           <mxGeometry height="60" width="140" x="-360" y="490" as="geometry" />
         </mxCell>
@@ -162,15 +159,6 @@
             </Array>
             <mxPoint x="-640" y="460" as="sourcePoint" />
             <mxPoint x="-590" y="410" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="r5_fMunJo_kKqDOxNcXM-20" edge="1" parent="1" source="r5_fMunJo_kKqDOxNcXM-15" style="endArrow=none;html=1;rounded=0;entryX=0;entryY=1;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="gVccbPNnzgAW1WOfRjG5-3" value="">
-          <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <Array as="points">
-              <mxPoint x="-580" y="520" />
-            </Array>
-            <mxPoint x="-560" y="520" as="sourcePoint" />
-            <mxPoint x="-580" y="460" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="r5_fMunJo_kKqDOxNcXM-21" edge="1" parent="1" source="r5_fMunJo_kKqDOxNcXM-13" style="endArrow=none;html=1;rounded=0;entryX=0;entryY=1;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="gVccbPNnzgAW1WOfRjG5-4" value="">
