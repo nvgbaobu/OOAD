@@ -4,6 +4,7 @@ import type { VaiTro } from "./token";
 
 export const CHI_ADMIN: RegExp[] = [
   /^\/dashboard(\/|$)/,
+  /^\/bao-cao(\/|$)/, // báo cáo doanh thu + xuất Excel
   /^\/sach\/.+/, // /sach (danh sách) Staff xem được; thêm/sửa sách, thể loại: chỉ Admin
   /^\/khach-hang\/hang(\/|$)/, // cấu hình hạng thành viên; tra cứu/thêm/sửa khách thì Staff được
   /^\/khuyen-mai\/.+/, // /khuyen-mai (danh sách) Staff xem được; thêm/sửa mã, combo: chỉ Admin
