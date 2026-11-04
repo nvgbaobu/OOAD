@@ -70,6 +70,16 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 - **Khi có quyết định mới** (đổi bảng/cột, thêm quy tắc nghiệp vụ, chốt thư viện) → cập nhật CLAUDE.md ngay trong cùng commit (mục "Quyết định đã chốt" hoặc mục liên quan).
 - Đổi schema: sửa `prisma/schema.prisma` → `npx prisma migrate dev --name <ten>` (nếu cần CHECK thì `--create-only`, thêm CHECK vào SQL rồi chạy lại `migrate dev`) → `npx prisma generate` → cập nhật seed nếu cần.
 
+## Quy ước code (theo module Đăng nhập – các module sau làm theo)
+- Cấu trúc: `lib/repositories/<ten>Repository.ts` (chỉ gọi Prisma) → `lib/services/<ten>Service.ts` (nghiệp vụ, ghi nhật ký) → `app/actions/<module>.ts` (`"use server"`, đọc FormData, kiểm tra dữ liệu, gọi service) → `app/(he-thong)/<duong-dan>/page.tsx` (giao diện). Form dùng client component + `useActionState`.
+- Đường dẫn tiếng Việt không dấu: `/dang-nhap`, `/dashboard`, `/pos`... Trang sau đăng nhập đặt trong route group `app/(he-thong)/` (có header + nút Đăng xuất).
+- **Phân quyền 2 lớp**:
+  1. `proxy.ts` (chỉ đọc cookie): chưa đăng nhập → `/dang-nhap`; `/` → trang chủ theo vai trò; Staff vào trang chỉ-Admin → `/pos`. Trang chỉ-Admin khai báo trong `CHI_ADMIN` ở `lib/auth/phanQuyen.ts` — **thêm module Admin mới thì thêm đường dẫn vào đây**.
+  2. `lib/auth/dal.ts`: **mọi page và server action** phải gọi `yeuCauDangNhap()` / `yeuCauDangNhap("ADMIN")` (kiểm lại DB, tài khoản bị khóa mất quyền ngay). Không tin proxy là đủ.
+- Không chuyển hướng theo vai trò bằng `redirect()` trong lúc render page khi có thể làm ở proxy: redirect giữa lúc render khiến Next chuyển trang phía client, click của người dùng trong lúc đó bị mất (đã gặp với nút Đăng xuất).
+- Ghi nhật ký qua `nhatKyRepository.ghi({ maTK, module, hanhDong, noiDung })`. Mã module/hành động viết HOA_KHONG_DAU, vd module `TAI_KHOAN`: `DANG_NHAP`, `DANG_NHAP_THAT_BAI`, `DANG_NHAP_BI_KHOA`, `DANG_XUAT`.
+- Kiểm tra trước commit: `npx tsc --noEmit`, `npm run lint`, `npm run build`, chạy thử trên trình duyệt.
+
 ## Cài đặt & chạy
 ```bash
 cp .env.example .env              # mật khẩu sa mặc định: QlbsSach@2026
@@ -81,11 +91,16 @@ npx prisma db seed                # dữ liệu mẫu (idempotent: xóa sạch r
 npm run dev
 ```
 - Tài khoản mẫu (mật khẩu `123456`): Admin `0900000001`; Staff `0900000002`, `0900000003`.
+- `.env` cần thêm `SESSION_SECRET` (tạo bằng `openssl rand -base64 32`) – xem `.env.example`.
 - Xem DB bằng DataGrip: localhost:1433, user `sa`, DB `QuanLyBanSach`, bật trust server certificate.
 
 ## Quyết định đã chốt (cập nhật dần)
 - 04/11/2026 – **Prisma 7.10.1** (bản stable; tag `latest` trên npm đang là 8.0.0-rc → không dùng). Prisma 7 dùng `prisma.config.ts` (URL migrate lấy từ `DATABASE_URL`) và **driver adapter** `@prisma/adapter-mssql` lúc chạy (đọc `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD`). Generator `prisma-client`, import từ `@/lib/generated/prisma/client`. Dùng chung client qua `lib/prisma.ts`.
 - 04/11/2026 – Next.js 16.4.5, React 19, Tailwind 4. Next 16 có thay đổi lớn → đọc `node_modules/next/dist/docs/` trước khi viết code Next (xem AGENTS.md).
+- 04/11/2026 – **Tắt `cacheComponents`** trong `next.config.ts` (create-next-app 16.4 bật sẵn). Lý do: app nội bộ, mọi trang là dữ liệu động theo người dùng; bật thì mọi chỗ đọc cookie/DB phải bọc `<Suspense>`/`'use cache: private'` – phức tạp không cần thiết.
+- 04/11/2026 – **Phiên đăng nhập**: JWT HS256 (thư viện `jose`) trong cookie httpOnly `qlbs_session`, hạn 12 giờ (1 ca). Payload chỉ có `{ maTK, vaiTro }`. `Secure` chỉ bật khi `COOKIE_SECURE=true` (POS chạy http trong LAN). Không thêm bảng phiên (giữ đúng 21 bảng).
+- 04/11/2026 – Đăng nhập bằng **số điện thoại** (10 số, bắt đầu 0) + mật khẩu. Sai SĐT hay sai mật khẩu đều báo chung "Số điện thoại hoặc mật khẩu không đúng" (không lộ SĐT nào có tài khoản). Admin → `/dashboard`, Staff → `/pos`; Admin cũng vào được POS.
+- 04/11/2026 – Không dùng `next/font/google` (máy POS có thể không có Internet khi build) → font hệ thống.
 - 04/11/2026 – Hash mật khẩu dùng **`bcryptjs`** (thuần JS, cùng định dạng hash bcrypt, không cần build native).
 - 04/11/2026 – Tên model Prisma = tên bảng (PascalCase tiếng Việt, `@@map` giữ đúng tên bảng); client dùng camelCase: `prisma.taiKhoan`, `prisma.hoaDon`...
 - 04/11/2026 – Khóa chính dạng INT IDENTITY (riêng `NhatKyHeThong.maLog` BIGINT). Bảng chi tiết dùng khóa ghép, xóa phiếu/hóa đơn cha thì xóa chi tiết (CASCADE); các FK khác NO ACTION.
@@ -101,7 +116,8 @@ npm run dev
 
 ## Tiến độ
 - [x] Khởi tạo Next.js + Prisma, `schema.prisma` 21 bảng, migrate lên SQL Server Docker, seed dữ liệu mẫu (04/11/2026).
-- [ ] Đăng nhập (phân quyền Admin → Dashboard, Staff → POS)
+- [x] Đăng nhập / đăng xuất, phân quyền Admin → Dashboard, Staff → POS, chặn tài khoản khóa, ghi nhật ký (04/11/2026, branch `feature/dang-nhap`). Dashboard và POS hiện là trang giữ chỗ.
+- [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin).
 - [ ] POS bán hàng
 - [ ] Các module còn lại (3–10), mỗi module 1 branch `feature/<module>`.
 
