@@ -22,7 +22,13 @@ const BANG_IDENTITY = [
 
 async function xoaDuLieu() {
   for (const bang of BANG_XOA) await prisma.$executeRawUnsafe(`DELETE FROM [dbo].[${bang}]`);
-  for (const bang of BANG_IDENTITY) await prisma.$executeRawUnsafe(`DBCC CHECKIDENT ('[dbo].[${bang}]', RESEED, 0)`);
+  // RESEED 0: bảng ĐÃ từng có dòng → ID kế tiếp = 1; nhưng bảng CHƯA từng có dòng (CSDL mới sau migrate deploy)
+  // → ID kế tiếp = 0 (lệch mọi ID, vd admin maTK = 0). Nên chỉ reseed bảng đã sinh ID (last_value khác NULL).
+  for (const bang of BANG_IDENTITY) {
+    await prisma.$executeRawUnsafe(`
+      IF (SELECT last_value FROM sys.identity_columns WHERE object_id = OBJECT_ID(N'[dbo].[${bang}]')) IS NOT NULL
+        DBCC CHECKIDENT ('[dbo].[${bang}]', RESEED, 0)`);
+  }
 }
 
 const ngayTruoc = (soNgay: number, gio = 10) => {
@@ -31,6 +37,9 @@ const ngayTruoc = (soNgay: number, gio = 10) => {
   d.setHours(gio, 0, 0, 0);
   return d;
 };
+/** Mốc giờ của dữ liệu "đã xảy ra" (hóa đơn, phiếu) không được nằm ở tương lai – seed chạy lúc 7h sáng
+ * thì hóa đơn "9h hôm nay" lùi về 5 phút trước. Tránh test phụ thuộc giờ chạy (CI chạy bất kỳ lúc nào). */
+const daQua = (d: Date) => (d.getTime() > Date.now() - 5 * 60_000 ? new Date(Date.now() - 5 * 60_000) : d);
 
 async function main() {
   await xoaDuLieu();
@@ -192,7 +201,7 @@ async function main() {
     });
     await prisma.hoaDon.create({
       data: {
-        maTK: don.nv, maKH: kh?.maKH, thoiGianTao: ngayTruoc(don.ngay, 9 + don.ngay), trangThai: "DA_THANH_TOAN",
+        maTK: don.nv, maKH: kh?.maKH, thoiGianTao: daQua(ngayTruoc(don.ngay, 9 + don.ngay)), trangThai: "DA_THANH_TOAN",
         tamTinh: tien.tamTinh, giamHangThe: tien.giamHang, thueVAT: tien.thueVAT, tongTien: tien.tongTien, diemCong: tien.diemCong,
         phuongThucTT: don.tt,
         tienKhachDua: don.tt === "TIEN_MAT" ? Math.ceil(tien.tongTien / 50000) * 50000 : tien.tongTien,
@@ -211,7 +220,7 @@ async function main() {
   });
   await prisma.phieuNhap.create({
     data: {
-      maNCC: ncc[0].maNCC, maTKLap: staff2.maTK, ngayLap: ngayTruoc(0, 8), trangThai: "CHO_DUYET",
+      maNCC: ncc[0].maNCC, maTKLap: staff2.maTK, ngayLap: daQua(ngayTruoc(0, 8)), trangThai: "CHO_DUYET",
       tongTien: 10 * 40000 + 15 * 40000, ghiChu: "Nhập sách sắp hết",
       chiTiets: { create: [{ maSach: sach[17].maSach, soLuong: 10, giaNhap: 40000 }, { maSach: sach[8].maSach, soLuong: 15, giaNhap: 40000 }] },
     },

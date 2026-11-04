@@ -16,7 +16,7 @@ jobs:
     # Code Next.js nằm ngay ở gốc repo (không có thư mục con) → không cần working-directory.
     env:
       # prisma.config.ts đọc env("DATABASE_URL"): `prisma generate` chỉ cần biến tồn tại, KHÔNG kết nối CSDL.
-      # Giá trị giả – CI không có SQL Server. (Biến thật nằm trong .env ở máy dev, không commit.)
+      # Giá trị giả – job này không có SQL Server. (Biến thật nằm trong .env ở máy dev, không commit.)
       DATABASE_URL: "sqlserver://localhost:1433;database=QuanLyBanSach;user=sa;password={ci};trustServerCertificate=true"
 
     steps:
@@ -44,3 +44,56 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # Kiểm thử nghiệp vụ (npm test – 9 bộ) trên SQL Server 2025 thật, CSDL tạo mới từ migrations mỗi lần chạy.
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2025-latest
+        env:
+          ACCEPT_EULA: "Y"
+          # Mật khẩu chỉ dùng trong container tạm của CI (bị xóa khi job xong) – không phải mật khẩu thật.
+          MSSQL_SA_PASSWORD: "CiQlbs@2026"
+        ports:
+          - 1433:1433
+        # Chờ SQL Server nhận kết nối rồi mới chạy các bước
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 20s
+
+    env:
+      DATABASE_URL: "sqlserver://localhost:1433;database=QuanLyBanSach;user=sa;password={CiQlbs@2026};encrypt=true;trustServerCertificate=true"
+      DB_HOST: localhost
+      DB_PORT: "1433"
+      DB_NAME: QuanLyBanSach
+      DB_USER: sa
+      DB_PASSWORD: "CiQlbs@2026"
+      SESSION_SECRET: ci-chi-dung-cho-kiem-thu
+      # Giờ cửa hàng: báo cáo/hạn mã giảm giá tính theo ngày địa phương
+      TZ: Asia/Ho_Chi_Minh
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Cài thư viện
+        run: npm ci
+
+      - name: Sinh Prisma Client
+        run: npx prisma generate
+
+      - name: Tạo CSDL từ migrations (21 bảng + CHECK)
+        run: npx prisma migrate deploy
+
+      - name: Kiểm thử nghiệp vụ (seed → 9 bộ kiểm thử → seed lại)
+        run: npm test
