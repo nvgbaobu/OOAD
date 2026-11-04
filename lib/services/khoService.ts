@@ -1,4 +1,6 @@
-// Nghiệp vụ kho: phiếu kiểm kê và phiếu xuất hủy.
+// Nghiệp vụ kho: phiếu nhập, phiếu kiểm kê, phiếu xuất hủy.
+// - Phiếu nhập: NCC phải đang giao dịch; sách đang bán; SL > 0; 0 < giá nhập ≤ giá bán hiện tại.
+//   Duyệt → cộng tồn kho + cập nhật Sach.giaNhap = giá nhập mới nhất (giữ ràng buộc giá bán ≥ giá nhập).
 // Vòng đời phiếu: Staff/Admin lập (CHO_DUYET) → Admin duyệt (DA_DUYET, cộng/trừ kho) hoặc từ chối (TU_CHOI, kho không đổi).
 // - Kiểm kê: slHeThong = tồn kho lúc lập phiếu. Khi duyệt cộng CHÊNH LỆCH (slThucTe − slHeThong) vào tồn hiện tại
 //   (không ghi đè bằng slThucTe vì giữa lúc lập và lúc duyệt có thể đã bán thêm). Một cuốn sách không được nằm
@@ -11,15 +13,18 @@ import { LoiNghiepVu } from "@/lib/loi";
 import { phieuKhoRepository } from "@/lib/repositories/phieuKhoRepository";
 import { sachRepository } from "@/lib/repositories/sachRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { nhaCungCapRepository } from "@/lib/repositories/nhaCungCapRepository";
 
 export const TRANG_THAI_PHIEU = { CHO_DUYET: "Chờ duyệt", DA_DUYET: "Đã duyệt", TU_CHOI: "Từ chối" } as const;
 export type TrangThaiPhieu = keyof typeof TRANG_THAI_PHIEU;
 
 /** Dòng thô từ form (chuỗi). Kiểm kê dùng slThucTe, xuất hủy dùng soLuong. */
-export type DongPhieuTho = { maSach: string; slThucTe?: string; soLuong?: string; lyDo: string };
+export type DongPhieuTho = { maSach: string; slThucTe?: string; soLuong?: string; lyDo?: string; giaNhap?: string };
 
 const chuanHoa = (s: string | undefined) => (s ?? "").trim().replace(/\s+/g, " ");
 const soNguyen = (s: string | undefined) => ((s ?? "").trim() === "" ? NaN : Number(s));
+const soTien = (s: string | undefined) => ((s ?? "").trim() === "" ? NaN : Number((s ?? "").replace(/[.,\s]/g, "")));
+const vnd = (n: number) => `${n.toLocaleString("vi-VN")}đ`;
 
 /** Kiểm tra chung: có dòng, sách tồn tại, không trùng, ghi chú ≤ 500. Trả về map sách + lỗi đã gom. */
 async function kiemTraChung(ghiChuTho: string, dong: DongPhieuTho[]) {
@@ -53,7 +58,78 @@ export const khoService = {
     return { thongKe, sapHet, choDuyet };
   },
 
-  sachDeChon: () => sachRepository.tatCaDeChon(),
+  /** Sách để chọn khi lập phiếu (Decimal → number để truyền sang client component). */
+  sachDeChon: async () =>
+    (await sachRepository.tatCaDeChon()).map((s) => ({ ...s, giaNhap: Number(s.giaNhap), giaBan: Number(s.giaBan) })),
+
+  nhaCungCapDeChon: () => nhaCungCapRepository.dangGiaoDich(),
+
+  // ───────── Phiếu nhập ─────────
+
+  danhSachPhieuNhap: (trangThai?: TrangThaiPhieu) => phieuKhoRepository.danhSachPhieuNhap(trangThai),
+  layPhieuNhap: (maPN: number) => phieuKhoRepository.layPhieuNhap(prisma, maPN),
+
+  async lapPhieuNhap(maNCCTho: string, ghiChuTho: string, dongTho: DongPhieuTho[], maTK: number) {
+    const maNCC = Number(maNCCTho);
+    const ncc = Number.isInteger(maNCC) && maNCC > 0 ? await nhaCungCapRepository.timTheoMa(maNCC) : null;
+    const loiNCC = !ncc ? "Chọn nhà cung cấp" : ncc.trangThaiHopTac !== "DANG_GIAO_DICH" ? `"${ncc.tenNCC}" đã ngừng giao dịch` : null;
+    const { loi, ghiChu, sachs } = await kiemTraChung(ghiChuTho, dongTho);
+    if (loiNCC) loi.maNCC = loiNCC;
+    const dong = dongTho.map((d) => {
+      const s = sachs.get(Number(d.maSach))!;
+      const soLuong = soNguyen(d.soLuong);
+      const giaNhap = soTien(d.giaNhap);
+      const k = `dong.${s.maSach}`;
+      if (s.trangThai !== "DANG_BAN") loi[k] = "Sách đã ngừng kinh doanh – mở bán lại trước khi nhập";
+      else if (!Number.isInteger(soLuong) || soLuong <= 0 || soLuong > 100000) loi[k] = "Số lượng nhập là số nguyên > 0";
+      else if (!Number.isFinite(giaNhap) || giaNhap <= 0) loi[k] = "Giá nhập là số > 0";
+      else if (giaNhap > Number(s.giaBan)) loi[k] = `Giá nhập cao hơn giá bán hiện tại (${vnd(Number(s.giaBan))}) – sửa giá bán ở màn hình Sách trước`;
+      return { maSach: s.maSach, soLuong, giaNhap };
+    });
+    if (Object.keys(loi).length) throw new LoiNghiepVu(loi.maNCC && Object.keys(loi).length === 1 ? loi.maNCC : "Phiếu chưa hợp lệ, kiểm tra các ô báo đỏ", loi);
+
+    const tongTien = dong.reduce((t, d) => t + d.soLuong * d.giaNhap, 0);
+    const phieu = await phieuKhoRepository.taoPhieuNhap(prisma, maTK, maNCC, ghiChu, tongTien, dong);
+    await nhatKyRepository.ghi({
+      maTK, module: "KHO", hanhDong: "LAP_PHIEU_NHAP",
+      noiDung: `Phiếu #${phieu.maPN} – ${ncc!.tenNCC}: ${dong.length} sách, ${dong.reduce((t, d) => t + d.soLuong, 0)} cuốn, ${vnd(tongTien)}`,
+    });
+    return phieu;
+  },
+
+  async duyetPhieuNhap(maPN: number, maTK: number) {
+    await prisma.$transaction(async (tx) => {
+      const phieu = await phieuKhoRepository.layPhieuNhap(tx, maPN);
+      if (!phieu) throw new LoiNghiepVu("Phiếu không tồn tại");
+      if (!(await phieuKhoRepository.xuLyPhieuNhap(tx, maPN, { trangThai: "DA_DUYET", maTKDuyet: maTK }))) {
+        throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
+      }
+      const doiGia: string[] = [];
+      for (const c of phieu.chiTiets) {
+        const giaMoi = Number(c.giaNhap);
+        if (!(await sachRepository.capNhatGiaNhap(tx, c.maSach, giaMoi))) {
+          throw new LoiNghiepVu(`Giá nhập "${c.sach.tenSach}" (${vnd(giaMoi)}) cao hơn giá bán hiện tại (${vnd(Number(c.sach.giaBan))}) – sửa giá bán trước khi duyệt`);
+        }
+        if (Number(c.sach.giaNhap) !== giaMoi) doiGia.push(`${c.sach.tenSach}: ${Number(c.sach.giaNhap)} → ${giaMoi}`);
+        await sachRepository.dieuChinhTon(tx, c.maSach, c.soLuong);
+      }
+      await nhatKyRepository.ghi(
+        {
+          maTK, module: "KHO", hanhDong: "DUYET_PHIEU_NHAP",
+          noiDung: `Phiếu #${maPN}: ${phieu.chiTiets.map((c) => `${c.sach.tenSach} +${c.soLuong}`).join(", ")}${doiGia.length ? `. Giá nhập: ${doiGia.join(", ")}` : ""}`,
+        },
+        tx,
+      );
+    });
+  },
+
+  async tuChoiPhieuNhap(maPN: number, lyDoTho: string, maTK: number) {
+    const lyDo = kiemTraLyDoTuChoi(lyDoTho);
+    if (!(await phieuKhoRepository.xuLyPhieuNhap(prisma, maPN, { trangThai: "TU_CHOI", maTKDuyet: maTK, lyDoTuChoi: lyDo }))) {
+      throw new LoiNghiepVu("Phiếu không tồn tại hoặc đã được xử lý");
+    }
+    await nhatKyRepository.ghi({ maTK, module: "KHO", hanhDong: "TU_CHOI_PHIEU_NHAP", noiDung: `Phiếu #${maPN}: ${lyDo}` });
+  },
 
   // ───────── Kiểm kê ─────────
 
