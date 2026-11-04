@@ -3,6 +3,7 @@
 // Quy tắc kho: thêm vào đơn → tăng soLuongTamGiu; thanh toán → trừ soLuongTon + giải phóng tạm giữ;
 // hủy đơn → giải phóng tạm giữ. Tính tiền dùng chung lib/services/tinhTienHoaDon.ts.
 import { prisma } from "@/lib/prisma";
+import { LoiNghiepVu } from "@/lib/loi";
 import type { Db } from "@/lib/db";
 import { sachRepository } from "@/lib/repositories/sachRepository";
 import { hoaDonRepository } from "@/lib/repositories/hoaDonRepository";
@@ -15,7 +16,7 @@ import { khachHangService, LoiKhachHang, SDT_HOP_LE } from "@/lib/services/khach
 import { tinhTienHoaDon, LoiTinhTien, type KetQuaTinhTien, type ComboTinhTien } from "@/lib/services/tinhTienHoaDon";
 
 /** Lỗi nghiệp vụ – thông điệp hiển thị thẳng cho người dùng. */
-export class LoiPOS extends Error {}
+export class LoiPOS extends LoiNghiepVu {}
 /** SĐT chưa đăng ký → POS mở form tạo nhanh khách hàng (UC3.1 luồng 7a). */
 export class KhongTimThayKhachHang extends LoiPOS {
   constructor(public soDienThoai: string) {
