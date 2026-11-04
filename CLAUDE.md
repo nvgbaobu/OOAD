@@ -29,7 +29,7 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 7. MaGiamGia(maMGG PK, maCode UQ, loaiGiam PHAN_TRAM|SO_TIEN, giaTriGiam, giaTriDonToiThieu, soLuongToiDa, daSuDung, ngayBatDau, ngayKetThuc, trangThai)
 8. Combo(maCombo PK, tenCombo, giaCombo, ngayBatDau, ngayKetThuc, trangThai)
 9. ChiTietCombo(maCombo PK/FK, maSach PK/FK, soLuong)
-10. HoaDon(maHD PK, maTK FK, maKH FK null, maMGG FK null, thoiGianTao, trangThai DANG_LAP|DA_THANH_TOAN|DA_HUY, tamTinh, thueVAT, tienGiam, diemSuDung, tongTien, phuongThucTT TIEN_MAT|QUET_THE|MA_QR, tienKhachDua, lyDoHuy)
+10. HoaDon(maHD PK, maTK FK, maKH FK null, maMGG FK null, thoiGianTao, trangThai DANG_LAP|DA_THANH_TOAN|DA_HUY, tamTinh, thueVAT, tienGiam, diemSuDung, diemCong, tongTien, phuongThucTT TIEN_MAT|QUET_THE|MA_QR, tienKhachDua, lyDoHuy)
 11. ChiTietHoaDon(maHD PK/FK, maSach PK/FK, soLuong, donGiaBan [snapshot giá lúc bán], thanhTien, thueSuatVAT [snapshot thuế suất thể loại lúc bán])
 12. NhaCungCap(maNCC PK, tenNCC, diaChi, maSoThue UQ, nguoiLienHe, soDienThoai, trangThaiHopTac DANG_GIAO_DICH|NGUNG_GIAO_DICH)
 13. PhieuNhap(maPN PK, maNCC FK, maTKLap FK, maTKDuyet FK null, ngayLap, ngayDuyet, trangThai CHO_DUYET|DA_DUYET|TU_CHOI, tongTien, ghiChu, lyDoTuChoi)
@@ -78,6 +78,12 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
   2. `lib/auth/dal.ts`: **mọi page và server action** phải gọi `yeuCauDangNhap()` / `yeuCauDangNhap("ADMIN")` (kiểm lại DB, tài khoản bị khóa mất quyền ngay). Không tin proxy là đủ.
 - Không chuyển hướng theo vai trò bằng `redirect()` trong lúc render page khi có thể làm ở proxy: redirect giữa lúc render khiến Next chuyển trang phía client, click của người dùng trong lúc đó bị mất (đã gặp với nút Đăng xuất).
 - Ghi nhật ký qua `nhatKyRepository.ghi({ maTK, module, hanhDong, noiDung })`. Mã module/hành động viết HOA_KHONG_DAU, vd module `TAI_KHOAN`: `DANG_NHAP`, `DANG_NHAP_THAT_BAI`, `DANG_NHAP_BI_KHOA`, `DANG_XUAT`.
+- Transaction: repository nhận tham số `db: Db` (`lib/db.ts`) để dùng được cả `prisma` lẫn `tx` trong `prisma.$transaction(async (tx) => ...)`.
+- Thay đổi số lượng kho/lượt dùng bằng **UPDATE có điều kiện** (`$executeRaw` … `WHERE soLuongTon - soLuongTamGiu >= n`) rồi kiểm tra số dòng bị ảnh hưởng, không đọc-rồi-ghi → hai quầy bán cùng lúc không bán vượt tồn.
+- Lỗi nghiệp vụ: service ném lớp lỗi riêng (vd `LoiPOS`) → server action bắt, trả `{ loi }` → `app/components/FormHanhDong.tsx` hiển thị. Lỗi khác cứ để ném ra.
+- Server action đổi dữ liệu xong gọi `refresh()` (từ `next/cache`) để trang tự cập nhật.
+- Form tìm kiếm (GET) dùng `<Form>` của `next/form` (chuyển trang phía client). Form GET thường tải lại cả trang → click trong ~0,5 giây đầu khi trang đang hydrate bị mất (đã gặp ở POS).
+- Định dạng tiền/ngày: `lib/dinhDang.ts` (`tienVND`, `ngayGio`).
 - Kiểm tra trước commit: `npx tsc --noEmit`, `npm run lint`, `npm run build`, chạy thử trên trình duyệt.
 
 ## Cài đặt & chạy
@@ -101,6 +107,12 @@ npm run dev
 - 04/11/2026 – **Phiên đăng nhập**: JWT HS256 (thư viện `jose`) trong cookie httpOnly `qlbs_session`, hạn 12 giờ (1 ca). Payload chỉ có `{ maTK, vaiTro }`. `Secure` chỉ bật khi `COOKIE_SECURE=true` (POS chạy http trong LAN). Không thêm bảng phiên (giữ đúng 21 bảng).
 - 04/11/2026 – Đăng nhập bằng **số điện thoại** (10 số, bắt đầu 0) + mật khẩu. Sai SĐT hay sai mật khẩu đều báo chung "Số điện thoại hoặc mật khẩu không đúng" (không lộ SĐT nào có tài khoản). Admin → `/dashboard`, Staff → `/pos`; Admin cũng vào được POS.
 - 04/11/2026 – Không dùng `next/font/google` (máy POS có thể không có Internet khi build) → font hệ thống.
+- 04/11/2026 – **POS**: giỏ hàng = hóa đơn `DANG_LAP` lưu trong DB, mỗi nhân viên tối đa 1 đơn đang lập (khách, mã, điểm cũng lưu trên đơn). Thêm sách → tăng tạm giữ; giá bán và thuế suất được **chụp lúc thêm vào đơn**. **Hủy đơn đang lập = xóa đơn nháp** (giải phóng tạm giữ, ghi nhật ký `HUY_DON_DANG_LAP`), không để lại hóa đơn DA_HUY – trạng thái DA_HUY dành cho hủy hóa đơn đã thanh toán.
+- 04/11/2026 – Khi thanh toán, `HoaDon.thoiGianTao` được đặt lại = **thời điểm thanh toán** (báo cáo doanh thu theo ngày dùng cột này).
+- 04/11/2026 – Thêm cột `HoaDon.diemCong` (migration `them_diem_cong_hoa_don`) để khi hủy hóa đơn đã thanh toán trừ đúng số điểm đã cộng.
+- 04/11/2026 – Mã giảm giá kiểm tra (trạng thái, ngày, lượt) lúc áp **và** lúc thanh toán; lượt dùng tăng khi thanh toán. Đổi mã → số điểm đã nhập bị đặt lại 0. Bỏ khách hàng → bỏ điểm. Mã nhập không phân biệt hoa/thường.
+- 04/11/2026 – Thăng hạng: sau thanh toán, hạng = hạng có `diemToiThieu` cao nhất ≤ `diemTichLuy` (chỉ nâng, không hạ).
+- 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: `/pos/hoa-don/[maHD]`, in bằng `window.print()` (header ẩn khi in).
 - 04/11/2026 – Hash mật khẩu dùng **`bcryptjs`** (thuần JS, cùng định dạng hash bcrypt, không cần build native).
 - 04/11/2026 – Tên model Prisma = tên bảng (PascalCase tiếng Việt, `@@map` giữ đúng tên bảng); client dùng camelCase: `prisma.taiKhoan`, `prisma.hoaDon`...
 - 04/11/2026 – Khóa chính dạng INT IDENTITY (riêng `NhatKyHeThong.maLog` BIGINT). Bảng chi tiết dùng khóa ghép, xóa phiếu/hóa đơn cha thì xóa chi tiết (CASCADE); các FK khác NO ACTION.
@@ -112,13 +124,15 @@ npm run dev
 - 04/11/2026 – `HoaDon.thueVAT`, `tienGiam` lưu **số tiền** (tienGiam = giảm hạng + giảm mã + giảm điểm). `CauHinhHeThong.tyLeQuyDoiDiem` = số tiền chi tiêu để được 1 điểm (mặc định 10.000đ); `giaTriMotDiem` = giá trị 1 điểm khi đổi (mặc định 1.000đ).
 
 ## Câu hỏi còn mở (cần nhóm chốt)
+- Đơn đang lập bị bỏ quên vẫn giữ hàng (tạm giữ) mãi. Có cần tự hủy đơn nháp quá X giờ / khi đăng xuất không?
+- POS chưa bán **Combo** (bảng Combo có sẵn) và chưa **tạo nhanh khách hàng** tại quầy (chỉ chọn khách đã có). Có cần không?
 - Điểm cộng đang tính trên `tongTien` (đã gồm VAT, sau mọi giảm giá). Nếu muốn tính trên tiền trước thuế thì sửa 1 dòng trong `tinhTienHoaDon.ts`.
 
 ## Tiến độ
 - [x] Khởi tạo Next.js + Prisma, `schema.prisma` 21 bảng, migrate lên SQL Server Docker, seed dữ liệu mẫu (04/11/2026).
 - [x] Đăng nhập / đăng xuất, phân quyền Admin → Dashboard, Staff → POS, chặn tài khoản khóa, ghi nhật ký (04/11/2026, branch `feature/dang-nhap`). Dashboard và POS hiện là trang giữ chỗ.
 - [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin).
-- [ ] POS bán hàng
+- [x] POS bán hàng: tìm sách, giỏ hàng (tạm giữ kho), chọn khách thành viên, mã giảm giá, đổi điểm, VAT, thanh toán 3 phương thức + tiền thừa, xem/in hóa đơn, hủy đơn nháp (04/11/2026, branch `feature/pos`). Kiểm thử nghiệp vụ: `npm run test:pos` (**ghi vào DB thật, chạy xong tự seed lại**).
 - [ ] Các module còn lại (3–10), mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
