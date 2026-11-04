@@ -48,8 +48,8 @@ export default function FormSach({ theLoais, banDau, maSach }: { theLoais: TheLo
         {o("nhaXuatBan", "Nhà xuất bản")}
         {o("namXB", "Năm xuất bản", { type: "number", min: 1900 })}
         {o("viTriKe", "Vị trí kệ", { placeholder: "VD: A1-01" })}
-        {o("giaNhap", "Giá nhập (đ)", { batBuoc: true, type: "number", min: 0, step: 500 })}
-        {o("giaBan", "Giá bán (đ)", { batBuoc: true, type: "number", min: 0, step: 500 })}
+        {o("giaNhap", "Giá nhập (đ)", { batBuoc: true, type: "number", min: 0, step: 1 })}
+        {o("giaBan", "Giá bán (đ)", { batBuoc: true, type: "number", min: 0, step: 1 })}
         {o("dinhMucToiThieu", "Định mức tồn tối thiểu", { type: "number", min: 0 })}
         {o("hinhAnh", "Đường dẫn ảnh bìa", { placeholder: "https://..." })}
       </fieldset>

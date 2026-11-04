@@ -22,11 +22,12 @@ export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
           <Link href="/sach" className="hover:underline">Sách</Link>
           <Link href="/kho" className="hover:underline">Kho</Link>
           {nd.vaiTro === "ADMIN" && <Link href="/nha-cung-cap" className="hover:underline">Nhà cung cấp</Link>}
+          {nd.vaiTro === "ADMIN" && <Link href="/cai-dat" className="hover:underline">Cài đặt</Link>}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-sm">
-          <span>
+          <Link href="/ca-nhan" className="hover:underline" title="Tài khoản của tôi – đổi mật khẩu">
             {nd.hoTen} <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{nd.vaiTro === "ADMIN" ? "Quản trị" : "Nhân viên"}</span>
-          </span>
+          </Link>
           <NutDangXuat soSachDangLap={soSachDangLap} />
         </div>
       </header>
