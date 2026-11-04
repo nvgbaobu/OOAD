@@ -5,12 +5,19 @@ on:
     branches: [main]
   pull_request:
 
+# Push mới lên cùng nhánh thì hủy lần chạy cũ đang dở
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: quan-ly-ban-sach   # code Next.js nằm trong thư mục con
+    # Code Next.js nằm ngay ở gốc repo (không có thư mục con) → không cần working-directory.
+    env:
+      # prisma.config.ts đọc env("DATABASE_URL"): `prisma generate` chỉ cần biến tồn tại, KHÔNG kết nối CSDL.
+      # Giá trị giả – CI không có SQL Server. (Biến thật nằm trong .env ở máy dev, không commit.)
+      DATABASE_URL: "sqlserver://localhost:1433;database=QuanLyBanSach;user=sa;password={ci};trustServerCertificate=true"
 
     steps:
       - uses: actions/checkout@v5
@@ -19,17 +26,21 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: quan-ly-ban-sach/package-lock.json
 
       - name: Cài thư viện
         run: npm ci
 
       - name: Sinh Prisma Client
         run: npx prisma generate
-        if: hashFiles('quan-ly-ban-sach/prisma/schema.prisma') != ''
 
       - name: Kiểm tra lint
         run: npm run lint
+
+      - name: Kiểm tra kiểu TypeScript
+        # next typegen sinh kiểu cho PageProps/LayoutProps/RouteContext trước khi tsc kiểm tra
+        run: |
+          npx next typegen
+          npx tsc --noEmit
 
       - name: Build
         run: npm run build
