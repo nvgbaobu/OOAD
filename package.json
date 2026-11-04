@@ -12,7 +12,8 @@
     "test:kho": "tsx scripts/kiem-thu-kho.ts && prisma db seed",
     "test:nhap": "tsx scripts/kiem-thu-nhap-hang.ts && prisma db seed",
     "test:hoa-don": "tsx scripts/kiem-thu-hoa-don.ts && prisma db seed",
-    "test": "prisma db seed && npm run test:pos && npm run test:sach && npm run test:kho && npm run test:nhap && npm run test:hoa-don"
+    "test:khach-hang": "tsx scripts/kiem-thu-khach-hang.ts && prisma db seed",
+    "test": "prisma db seed && npm run test:pos && npm run test:sach && npm run test:kho && npm run test:nhap && npm run test:hoa-don && npm run test:khach-hang"
   },
   "dependencies": {
     "@prisma/adapter-mssql": "^7.10.1",
