@@ -10,13 +10,14 @@ export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex items-center print:hidden gap-4 border-b bg-white px-4 py-2">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-white px-4 py-2 whitespace-nowrap print:hidden">
         <span className="font-bold">Nhà sách</span>
-        <nav className="flex gap-3 text-sm">
+        <nav className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
           {nd.vaiTro === "ADMIN" && <Link href="/dashboard" className="hover:underline">Dashboard</Link>}
           <Link href="/pos" className="hover:underline">Bán hàng</Link>
           <Link href="/hoa-don" className="hover:underline">Hóa đơn</Link>
           <Link href="/khach-hang" className="hover:underline">Khách hàng</Link>
+          <Link href="/khuyen-mai" className="hover:underline">Khuyến mãi</Link>
           <Link href="/sach" className="hover:underline">Sách</Link>
           <Link href="/kho" className="hover:underline">Kho</Link>
           {nd.vaiTro === "ADMIN" && <Link href="/nha-cung-cap" className="hover:underline">Nhà cung cấp</Link>}
