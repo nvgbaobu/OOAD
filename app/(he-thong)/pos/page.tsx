@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Form from "next/form";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
 import { posService } from "@/lib/services/posService";
-import { tienVND } from "@/lib/dinhDang";
+import { tienVND, gioPhut } from "@/lib/dinhDang";
 import FormHanhDong from "@/app/components/FormHanhDong";
 import KhoiThanhToan from "./KhoiThanhToan";
 import {
@@ -18,7 +18,7 @@ export default async function TrangPOS({ searchParams }: PageProps<"/pos">) {
   const nd = await yeuCauDangNhap("ADMIN", "STAFF");
   const { q } = await searchParams;
   const tuKhoa = typeof q === "string" ? q.trim() : "";
-  const [{ don, tien, canhBao, phuongThuc, giaTriMotDiem }, ketQua] = await Promise.all([
+  const [{ don, tien, canhBao, thongBao, hetHanLuc, phuongThuc, giaTriMotDiem }, ketQua] = await Promise.all([
     posService.layGioHang(nd.maTK),
     posService.timSach(tuKhoa),
   ]);
@@ -84,6 +84,11 @@ export default async function TrangPOS({ searchParams }: PageProps<"/pos">) {
             </FormHanhDong>
           )}
         </div>
+
+        {thongBao && <p role="status" className="rounded bg-yellow-50 p-2 text-sm text-yellow-800">⚠ {thongBao}</p>}
+        {hetHanLuc && (
+          <p className="text-xs text-gray-500">Đơn tự hủy lúc {gioPhut(hetHanLuc)} nếu không cập nhật thêm.</p>
+        )}
 
         {/* Giỏ */}
         {coSach ? (

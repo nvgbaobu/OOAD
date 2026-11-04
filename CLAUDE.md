@@ -54,6 +54,12 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
   - Cộng điểm = floor(tongTien / tyLeQuyDoiDiem) (chỉ khi có KH thành viên); xét thăng hạng theo diemTichLuy.
 - **Thuế GTGT sách**: 0% (không chịu thuế) cho sách phục vụ chính trị, giáo dục, văn hóa (sách giáo khoa, giáo trình, chính trị – pháp luật, khoa học, lịch sử...); 5% cho sách còn lại (tham khảo, ngoại ngữ, truyện, kỹ năng sống...). Thuế suất gắn theo **thể loại** (`TheLoai.thueSuatVAT`) → khi thêm sách phải chọn đúng thể loại.
 - Hủy hóa đơn đã thanh toán (chỉ Admin, bắt buộc lý do): hoàn kho, trừ điểm khách.
+- **Đơn đang lập (DANG_LAP) bị hủy ở 3 thời điểm** → `DA_HUY` + `lyDoHuy` + giải phóng tạm giữ + nhật ký `HUY_DON_DANG_LAP`:
+  1. Nhân viên bấm "Hủy đơn" → "Nhân viên hủy đơn đang lập".
+  2. Đăng xuất (UC1.2): còn sách trong đơn thì cảnh báo "Đơn hàng chưa hoàn tất"; Đồng ý → "Hủy khi nhân viên đăng xuất".
+  3. **Quá 30 phút không cập nhật** (`HoaDon.thoiGianCapNhat`, hằng `HAN_DON_NHAP_PHUT`) → "Tự động hủy do quá thời gian". Không dùng job nền: **lazy cleanup** – trước mỗi lần mở POS / thao tác giỏ / thanh toán, hủy mọi đơn DANG_LAP quá hạn (của mọi nhân viên). Nhân viên có đơn bị tự hủy trong 10 phút gần đây được báo trên POS.
+  - Mọi thao tác sửa đơn đều cập nhật `thoiGianCapNhat`. Hủy dùng UPDATE có điều kiện `WHERE trangThai = 'DANG_LAP'` (không giải phóng tạm giữ 2 lần); thanh toán cũng chỉ chuyển trạng thái nếu đơn còn DANG_LAP.
+  - Phân biệt đơn nháp đã hủy với hóa đơn đã thanh toán rồi bị hủy: đơn nháp có `phuongThucTT IS NULL`. **Báo cáo doanh thu chỉ tính DA_THANH_TOAN.**
 - Sách "Ngừng kinh doanh" ẩn khỏi POS, giữ dữ liệu cho hóa đơn cũ. Giá bán ≥ giá nhập.
 - Mọi thao tác quan trọng ghi NhatKyHeThong.
 
@@ -85,6 +91,7 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 - Server action đổi dữ liệu xong gọi `refresh()` (từ `next/cache`) để trang tự cập nhật.
 - Form tìm kiếm (GET) dùng `<Form>` của `next/form` (chuyển trang phía client). Form GET thường tải lại cả trang → click trong ~0,5 giây đầu khi trang đang hydrate bị mất (đã gặp ở POS).
 - Định dạng tiền/ngày: `lib/dinhDang.ts` (`tienVND`, `ngayGio`).
+- Sau `prisma generate` (đổi schema) phải **khởi động lại `npm run dev`**: PrismaClient được giữ trong `globalThis` qua hot-reload nên vẫn là bản cũ → lỗi `PrismaClientValidationError` với cột mới.
 - Kiểm tra trước commit: `npx tsc --noEmit`, `npm run lint`, `npm run build`, chạy thử trên trình duyệt.
 
 ## Cài đặt & chạy
@@ -108,7 +115,7 @@ npm run dev
 - 04/11/2026 – **Phiên đăng nhập**: JWT HS256 (thư viện `jose`) trong cookie httpOnly `qlbs_session`, hạn 12 giờ (1 ca). Payload chỉ có `{ maTK, vaiTro }`. `Secure` chỉ bật khi `COOKIE_SECURE=true` (POS chạy http trong LAN). Không thêm bảng phiên (giữ đúng 21 bảng).
 - 04/11/2026 – Đăng nhập bằng **số điện thoại** (10 số, bắt đầu 0) + mật khẩu. Sai SĐT hay sai mật khẩu đều báo chung "Số điện thoại hoặc mật khẩu không đúng" (không lộ SĐT nào có tài khoản). Admin → `/dashboard`, Staff → `/pos`; Admin cũng vào được POS.
 - 04/11/2026 – Không dùng `next/font/google` (máy POS có thể không có Internet khi build) → font hệ thống.
-- 04/11/2026 – **POS**: giỏ hàng = hóa đơn `DANG_LAP` lưu trong DB, mỗi nhân viên tối đa 1 đơn đang lập (khách, mã, điểm cũng lưu trên đơn). Thêm sách → tăng tạm giữ; giá bán và thuế suất được **chụp lúc thêm vào đơn**. **Hủy đơn đang lập = xóa đơn nháp** (giải phóng tạm giữ, ghi nhật ký `HUY_DON_DANG_LAP`), không để lại hóa đơn DA_HUY – trạng thái DA_HUY dành cho hủy hóa đơn đã thanh toán.
+- 04/11/2026 – **POS**: giỏ hàng = hóa đơn `DANG_LAP` lưu trong DB, mỗi nhân viên tối đa 1 đơn đang lập (khách, mã, điểm cũng lưu trên đơn). Thêm sách → tăng tạm giữ; giá bán và thuế suất được **chụp lúc thêm vào đơn**. Khi mở POS mà còn đơn nháp chưa hết hạn thì mở lại đơn đó (tải lại trang/mất mạng không mất giỏ).
 - 04/11/2026 – Khi thanh toán, `HoaDon.thoiGianTao` được đặt lại = **thời điểm thanh toán** (báo cáo doanh thu theo ngày dùng cột này).
 - 04/11/2026 – **Tách `HoaDon.tienGiam` thành `giamCombo`, `giamHangThe`, `giamMaGiamGia`, `giamDiem`** (bill hiện từng khoản, báo cáo + hoàn điểm chính xác) và thêm `HoaDon.thoiGianCapNhat` (migration `tach_tien_giam_va_thoi_gian_cap_nhat`, viết tay). Vẫn 21 bảng. POS có **Combo** bản đơn giản (xem Quy tắc nghiệp vụ).
 - 04/11/2026 – Thêm cột `HoaDon.diemCong` (migration `them_diem_cong_hoa_don`) để khi hủy hóa đơn đã thanh toán trừ đúng số điểm đã cộng.
@@ -126,7 +133,6 @@ npm run dev
 - 04/11/2026 – `HoaDon.thueVAT`, `tienGiam` lưu **số tiền** (tienGiam = giảm hạng + giảm mã + giảm điểm). `CauHinhHeThong.tyLeQuyDoiDiem` = số tiền chi tiêu để được 1 điểm (mặc định 10.000đ); `giaTriMotDiem` = giá trị 1 điểm khi đổi (mặc định 1.000đ).
 
 ## Câu hỏi còn mở (cần nhóm chốt)
-- Đơn đang lập bị bỏ quên vẫn giữ hàng (tạm giữ) mãi. Có cần tự hủy đơn nháp quá X giờ / khi đăng xuất không?
 - Điểm cộng đang tính trên `tongTien` (đã gồm VAT, sau mọi giảm giá). Nếu muốn tính trên tiền trước thuế thì sửa 1 dòng trong `tinhTienHoaDon.ts`.
 
 ## Tiến độ

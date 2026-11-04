@@ -1,7 +1,7 @@
 // Kịch bản kiểm thử nghiệp vụ POS trên DB thật. Chạy: npx tsx scripts/kiem-thu-pos.ts  (sau đó chạy lại seed)
 import "dotenv/config";
 import { prisma } from "../lib/prisma";
-import { posService, LoiPOS } from "../lib/services/posService";
+import { posService, LoiPOS, LY_DO_HUY } from "../lib/services/posService";
 
 const sach = (isbn: string) => prisma.sach.findUniqueOrThrow({ where: { isbn } });
 let loi = 0;
@@ -84,6 +84,38 @@ async function main() {
   const maHDCombo = await posService.thanhToan(maTK, "MA_QR", null);
   const hdCombo = await prisma.hoaDon.findUniqueOrThrow({ where: { maHD: maHDCombo } });
   kiemTra(Number(hdCombo.giamCombo) === 40000 && Number(hdCombo.giamHangThe) === 0, "HĐ lưu giamCombo = 40.000");
+
+  console.log("6. Hủy đơn nháp: bằng tay / quá hạn / đăng xuất");
+  const doraemon = await sach("9786042000016");
+  const donCuoi = () => prisma.hoaDon.findFirstOrThrow({ where: { maTK }, orderBy: { maHD: "desc" } });
+  await posService.themSach(maTK, doraemon.maSach, 3);
+  await posService.huyDon(maTK);
+  let d = await donCuoi();
+  kiemTra(d.trangThai === "DA_HUY" && d.lyDoHuy === LY_DO_HUY.NHAN_VIEN && (await sach(doraemon.isbn)).soLuongTamGiu === 0, "bấm Hủy → DA_HUY, trả kho");
+
+  await posService.themSach(maTK, doraemon.maSach, 3);
+  const maQuaHan = (await donCuoi()).maHD;
+  await posService.themSach(3, doraemon.maSach, 2); // đơn của nhân viên khác (Hào)
+  // Giả lập cả 2 đơn bị bỏ quên quá 30 phút
+  await prisma.$executeRaw`UPDATE HoaDon SET thoiGianCapNhat = DATEADD(MINUTE, -31, SYSDATETIME()) WHERE trangThai = N'DANG_LAP'`;
+  kiemTra((await sach(doraemon.isbn)).soLuongTamGiu === 5, "trước dọn dẹp: tạm giữ 5");
+  await phaiLoi(() => posService.themSach(maTK, doraemon.maSach), "đã tự hủy");
+  d = await prisma.hoaDon.findUniqueOrThrow({ where: { maHD: maQuaHan } });
+  kiemTra(d.trangThai === "DA_HUY" && d.lyDoHuy === LY_DO_HUY.QUA_HAN, "đơn quá hạn → DA_HUY, lý do tự động");
+  kiemTra((await sach(doraemon.isbn)).soLuongTamGiu === 0, "dọn cả đơn quá hạn của nhân viên khác → tạm giữ 0");
+  kiemTra((await prisma.hoaDon.count({ where: { trangThai: "DANG_LAP" } })) === 0, "không còn đơn nháp nào");
+  const gioHao = await posService.layGioHang(3);
+  kiemTra(gioHao.don === null && !!gioHao.thongBao?.includes("đã tự hủy"), `Hào được báo: ${gioHao.thongBao}`);
+  await phaiLoi(() => posService.boKhachHang(3), "đã tự hủy");
+
+  await posService.themSach(maTK, doraemon.maSach, 1);
+  const conMoi = await posService.layGioHang(maTK);
+  kiemTra(conMoi.don !== null && conMoi.don.trangThai === "DANG_LAP" && conMoi.hetHanLuc! > new Date(), "đơn mới chưa quá hạn vẫn được giữ (thông báo đơn cũ vẫn hiện 10 phút)");
+  kiemTra((await posService.soSachDonDangLap(maTK)) === 1, "có 1 đầu sách → đăng xuất sẽ cảnh báo");
+  await posService.huyDonKhiDangXuat(maTK);
+  d = await donCuoi();
+  kiemTra(d.trangThai === "DA_HUY" && d.lyDoHuy === LY_DO_HUY.DANG_XUAT && (await sach(doraemon.isbn)).soLuongTamGiu === 0, "đăng xuất → DA_HUY, trả kho");
+  await posService.huyDonKhiDangXuat(maTK); // không có đơn → không lỗi
 
   console.log(loi ? `\n✘ ${loi} kiểm tra thất bại` : "\n✔ Tất cả kiểm tra đạt");
   process.exitCode = loi ? 1 : 0;
