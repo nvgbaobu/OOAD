@@ -1,0 +1,388 @@
+// Lược đồ CSDL – Quản lý cửa hàng bán sách (Nhóm 09)
+// 21 bảng, tên bảng/cột tiếng Việt không dấu (khớp báo cáo).
+// SQL Server không hỗ trợ enum của Prisma → dùng NVARCHAR + CHECK (CHECK được thêm
+// trong file migration SQL, xem prisma/migrations/*/migration.sql).
+// Mọi FK dùng onUpdate: NoAction để tránh lỗi "multiple cascade paths" của SQL Server.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlserver"
+}
+
+// ───────────────────────── Tài khoản & bảo mật ─────────────────────────
+
+/// 1. Tài khoản nhân viên. vaiTro: ADMIN | STAFF; trangThai: HOAT_DONG | KHOA
+model TaiKhoan {
+  maTK        Int      @id @default(autoincrement())
+  soDienThoai String   @unique @db.VarChar(15)
+  matKhauHash String   @db.VarChar(255)
+  hoTen       String   @db.NVarChar(100)
+  email       String?  @db.NVarChar(100)
+  vaiTro      String   @default("STAFF") @db.NVarChar(10)
+  trangThai   String   @default("HOAT_DONG") @db.NVarChar(20)
+  ngayTao     DateTime @default(now()) @db.DateTime2
+
+  maOTPs            MaOTP[]
+  hoaDons           HoaDon[]
+  phieuNhapLap      PhieuNhap[]     @relation("PhieuNhapLap")
+  phieuNhapDuyet    PhieuNhap[]     @relation("PhieuNhapDuyet")
+  phieuKiemKeLap    PhieuKiemKe[]   @relation("PhieuKiemKeLap")
+  phieuKiemKeDuyet  PhieuKiemKe[]   @relation("PhieuKiemKeDuyet")
+  phieuXuatHuyLap   PhieuXuatHuy[]  @relation("PhieuXuatHuyLap")
+  phieuXuatHuyDuyet PhieuXuatHuy[]  @relation("PhieuXuatHuyDuyet")
+  nhatKys           NhatKyHeThong[]
+  banSaoLuus        BanSaoLuu[]
+
+  @@map("TaiKhoan")
+}
+
+/// 2. Mã OTP dùng cho quên mật khẩu
+model MaOTP {
+  maOTP          Int      @id @default(autoincrement())
+  maTK           Int
+  maCode         String   @db.VarChar(10)
+  thoiGianHetHan DateTime @db.DateTime2
+  daSuDung       Boolean  @default(false)
+
+  taiKhoan TaiKhoan @relation(fields: [maTK], references: [maTK], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([maTK])
+  @@map("MaOTP")
+}
+
+// ───────────────────────── Sách ─────────────────────────
+
+/// 3. Thể loại sách
+model TheLoai {
+  maTL  Int    @id @default(autoincrement())
+  tenTL String @unique @db.NVarChar(100)
+
+  sachs Sach[]
+
+  @@map("TheLoai")
+}
+
+/// 4. Sách. trangThai: DANG_BAN | NGUNG_KINH_DOANH. Số bán được = soLuongTon − soLuongTamGiu
+model Sach {
+  maSach          Int     @id @default(autoincrement())
+  isbn            String  @unique @db.VarChar(20)
+  tenSach         String  @db.NVarChar(255)
+  tacGia          String  @db.NVarChar(150)
+  nhaXuatBan      String? @db.NVarChar(150)
+  namXB           Int?
+  maTL            Int
+  giaNhap         Decimal @db.Decimal(12, 2)
+  giaBan          Decimal @db.Decimal(12, 2)
+  hinhAnh         String? @db.NVarChar(500)
+  viTriKe         String? @db.NVarChar(50)
+  soLuongTon      Int     @default(0)
+  soLuongTamGiu   Int     @default(0)
+  dinhMucToiThieu Int     @default(5)
+  trangThai       String  @default("DANG_BAN") @db.NVarChar(20)
+
+  theLoai          TheLoai            @relation(fields: [maTL], references: [maTL], onDelete: NoAction, onUpdate: NoAction)
+  chiTietCombos    ChiTietCombo[]
+  chiTietHoaDons   ChiTietHoaDon[]
+  chiTietPhieuNhap ChiTietPhieuNhap[]
+  chiTietKiemKes   ChiTietKiemKe[]
+  chiTietXuatHuys  ChiTietXuatHuy[]
+
+  @@index([maTL])
+  @@map("Sach")
+}
+
+// ───────────────────────── Khách hàng & khuyến mãi ─────────────────────────
+
+/// 5. Hạng thành viên (vd: Đồng, Bạc, Vàng)
+model HangThanhVien {
+  maHang        Int     @id @default(autoincrement())
+  tenHang       String  @unique @db.NVarChar(50)
+  diemToiThieu  Int     @default(0)
+  phanTramUuDai Decimal @default(0) @db.Decimal(5, 2)
+
+  khachHangs KhachHang[]
+
+  @@map("HangThanhVien")
+}
+
+/// 6. Khách hàng thành viên. diemHienTai = điểm còn dùng được; diemTichLuy = tổng điểm để xét hạng
+model KhachHang {
+  maKH        Int      @id @default(autoincrement())
+  soDienThoai String   @unique @db.VarChar(15)
+  hoTen       String   @db.NVarChar(100)
+  email       String?  @db.NVarChar(100)
+  diaChi      String?  @db.NVarChar(255)
+  diemHienTai Int      @default(0)
+  diemTichLuy Int      @default(0)
+  maHang      Int
+  ngayTao     DateTime @default(now()) @db.DateTime2
+
+  hangThanhVien HangThanhVien @relation(fields: [maHang], references: [maHang], onDelete: NoAction, onUpdate: NoAction)
+  hoaDons       HoaDon[]
+
+  @@index([maHang])
+  @@map("KhachHang")
+}
+
+/// 7. Mã giảm giá. loaiGiam: PHAN_TRAM | SO_TIEN; trangThai: HOAT_DONG | NGUNG_HOAT_DONG
+model MaGiamGia {
+  maMGG             Int      @id @default(autoincrement())
+  maCode            String   @unique @db.VarChar(30)
+  loaiGiam          String   @db.NVarChar(10)
+  giaTriGiam        Decimal  @db.Decimal(12, 2)
+  giaTriDonToiThieu Decimal  @default(0) @db.Decimal(12, 2)
+  soLuongToiDa      Int
+  daSuDung          Int      @default(0)
+  ngayBatDau        DateTime @db.DateTime2
+  ngayKetThuc       DateTime @db.DateTime2
+  trangThai         String   @default("HOAT_DONG") @db.NVarChar(20)
+
+  hoaDons HoaDon[]
+
+  @@map("MaGiamGia")
+}
+
+/// 8. Combo sách. trangThai: HOAT_DONG | NGUNG_HOAT_DONG
+model Combo {
+  maCombo     Int      @id @default(autoincrement())
+  tenCombo    String   @db.NVarChar(150)
+  giaCombo    Decimal  @db.Decimal(12, 2)
+  ngayBatDau  DateTime @db.DateTime2
+  ngayKetThuc DateTime @db.DateTime2
+  trangThai   String   @default("HOAT_DONG") @db.NVarChar(20)
+
+  chiTiets ChiTietCombo[]
+
+  @@map("Combo")
+}
+
+/// 9. Chi tiết combo
+model ChiTietCombo {
+  maCombo Int
+  maSach  Int
+  soLuong Int @default(1)
+
+  combo Combo @relation(fields: [maCombo], references: [maCombo], onDelete: Cascade, onUpdate: NoAction)
+  sach  Sach  @relation(fields: [maSach], references: [maSach], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([maCombo, maSach])
+  @@map("ChiTietCombo")
+}
+
+// ───────────────────────── Bán hàng ─────────────────────────
+
+/// 10. Hóa đơn. trangThai: DANG_LAP | DA_THANH_TOAN | DA_HUY; phuongThucTT: TIEN_MAT | QUET_THE | MA_QR
+/// thueVAT, tienGiam là SỐ TIỀN (không phải tỷ lệ).
+model HoaDon {
+  maHD         Int      @id @default(autoincrement())
+  maTK         Int
+  maKH         Int?
+  maMGG        Int?
+  thoiGianTao  DateTime @default(now()) @db.DateTime2
+  trangThai    String   @default("DANG_LAP") @db.NVarChar(20)
+  tamTinh      Decimal  @default(0) @db.Decimal(12, 2)
+  thueVAT      Decimal  @default(0) @db.Decimal(12, 2)
+  tienGiam     Decimal  @default(0) @db.Decimal(12, 2)
+  diemSuDung   Int      @default(0)
+  tongTien     Decimal  @default(0) @db.Decimal(12, 2)
+  phuongThucTT String?  @db.NVarChar(10)
+  tienKhachDua Decimal? @db.Decimal(12, 2)
+  lyDoHuy      String?  @db.NVarChar(500)
+
+  taiKhoan  TaiKhoan        @relation(fields: [maTK], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+  khachHang KhachHang?      @relation(fields: [maKH], references: [maKH], onDelete: NoAction, onUpdate: NoAction)
+  maGiamGia MaGiamGia?      @relation(fields: [maMGG], references: [maMGG], onDelete: NoAction, onUpdate: NoAction)
+  chiTiets  ChiTietHoaDon[]
+
+  @@index([maTK])
+  @@index([maKH])
+  @@index([thoiGianTao])
+  @@map("HoaDon")
+}
+
+/// 11. Chi tiết hóa đơn. donGiaBan = snapshot giá bán lúc bán
+model ChiTietHoaDon {
+  maHD      Int
+  maSach    Int
+  soLuong   Int
+  donGiaBan Decimal @db.Decimal(12, 2)
+  thanhTien Decimal @db.Decimal(12, 2)
+
+  hoaDon HoaDon @relation(fields: [maHD], references: [maHD], onDelete: Cascade, onUpdate: NoAction)
+  sach   Sach   @relation(fields: [maSach], references: [maSach], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([maHD, maSach])
+  @@map("ChiTietHoaDon")
+}
+
+// ───────────────────────── Nhập hàng ─────────────────────────
+
+/// 12. Nhà cung cấp. trangThaiHopTac: DANG_GIAO_DICH | NGUNG_GIAO_DICH
+model NhaCungCap {
+  maNCC           Int     @id @default(autoincrement())
+  tenNCC          String  @db.NVarChar(150)
+  diaChi          String? @db.NVarChar(255)
+  maSoThue        String  @unique @db.VarChar(20)
+  nguoiLienHe     String? @db.NVarChar(100)
+  soDienThoai     String? @db.VarChar(15)
+  trangThaiHopTac String  @default("DANG_GIAO_DICH") @db.NVarChar(20)
+
+  phieuNhaps PhieuNhap[]
+
+  @@map("NhaCungCap")
+}
+
+/// 13. Phiếu nhập. trangThai: CHO_DUYET | DA_DUYET | TU_CHOI
+model PhieuNhap {
+  maPN       Int       @id @default(autoincrement())
+  maNCC      Int
+  maTKLap    Int
+  maTKDuyet  Int?
+  ngayLap    DateTime  @default(now()) @db.DateTime2
+  ngayDuyet  DateTime? @db.DateTime2
+  trangThai  String    @default("CHO_DUYET") @db.NVarChar(20)
+  tongTien   Decimal   @default(0) @db.Decimal(12, 2)
+  ghiChu     String?   @db.NVarChar(500)
+  lyDoTuChoi String?   @db.NVarChar(500)
+
+  nhaCungCap NhaCungCap         @relation(fields: [maNCC], references: [maNCC], onDelete: NoAction, onUpdate: NoAction)
+  nguoiLap   TaiKhoan           @relation("PhieuNhapLap", fields: [maTKLap], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+  nguoiDuyet TaiKhoan?          @relation("PhieuNhapDuyet", fields: [maTKDuyet], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+  chiTiets   ChiTietPhieuNhap[]
+
+  @@index([maNCC])
+  @@map("PhieuNhap")
+}
+
+/// 14. Chi tiết phiếu nhập
+model ChiTietPhieuNhap {
+  maPN    Int
+  maSach  Int
+  soLuong Int
+  giaNhap Decimal @db.Decimal(12, 2)
+
+  phieuNhap PhieuNhap @relation(fields: [maPN], references: [maPN], onDelete: Cascade, onUpdate: NoAction)
+  sach      Sach      @relation(fields: [maSach], references: [maSach], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([maPN, maSach])
+  @@map("ChiTietPhieuNhap")
+}
+
+// ───────────────────────── Kho ─────────────────────────
+
+/// 15. Phiếu kiểm kê. trangThai: CHO_DUYET | DA_DUYET | TU_CHOI
+model PhieuKiemKe {
+  maPKK      Int       @id @default(autoincrement())
+  maTKLap    Int
+  maTKDuyet  Int?
+  ngayLap    DateTime  @default(now()) @db.DateTime2
+  ngayDuyet  DateTime? @db.DateTime2
+  trangThai  String    @default("CHO_DUYET") @db.NVarChar(20)
+  ghiChu     String?   @db.NVarChar(500)
+  lyDoTuChoi String?   @db.NVarChar(500)
+
+  nguoiLap   TaiKhoan        @relation("PhieuKiemKeLap", fields: [maTKLap], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+  nguoiDuyet TaiKhoan?       @relation("PhieuKiemKeDuyet", fields: [maTKDuyet], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+  chiTiets   ChiTietKiemKe[]
+
+  @@map("PhieuKiemKe")
+}
+
+/// 16. Chi tiết kiểm kê
+model ChiTietKiemKe {
+  maPKK         Int
+  maSach        Int
+  slHeThong     Int
+  slThucTe      Int
+  lyDoChenhLech String? @db.NVarChar(500)
+
+  phieuKiemKe PhieuKiemKe @relation(fields: [maPKK], references: [maPKK], onDelete: Cascade, onUpdate: NoAction)
+  sach        Sach        @relation(fields: [maSach], references: [maSach], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([maPKK, maSach])
+  @@map("ChiTietKiemKe")
+}
+
+/// 17. Phiếu xuất hủy. trangThai: CHO_DUYET | DA_DUYET | TU_CHOI
+model PhieuXuatHuy {
+  maPXH      Int       @id @default(autoincrement())
+  maTKLap    Int
+  maTKDuyet  Int?
+  ngayLap    DateTime  @default(now()) @db.DateTime2
+  ngayDuyet  DateTime? @db.DateTime2
+  trangThai  String    @default("CHO_DUYET") @db.NVarChar(20)
+  ghiChu     String?   @db.NVarChar(500)
+  lyDoTuChoi String?   @db.NVarChar(500)
+
+  nguoiLap   TaiKhoan         @relation("PhieuXuatHuyLap", fields: [maTKLap], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+  nguoiDuyet TaiKhoan?        @relation("PhieuXuatHuyDuyet", fields: [maTKDuyet], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+  chiTiets   ChiTietXuatHuy[]
+
+  @@map("PhieuXuatHuy")
+}
+
+/// 18. Chi tiết xuất hủy
+model ChiTietXuatHuy {
+  maPXH   Int
+  maSach  Int
+  soLuong Int
+  lyDo    String? @db.NVarChar(500)
+
+  phieuXuatHuy PhieuXuatHuy @relation(fields: [maPXH], references: [maPXH], onDelete: Cascade, onUpdate: NoAction)
+  sach         Sach         @relation(fields: [maSach], references: [maSach], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([maPXH, maSach])
+  @@map("ChiTietXuatHuy")
+}
+
+// ───────────────────────── Hệ thống ─────────────────────────
+
+/// 19. Cấu hình hệ thống – chỉ 1 dòng (maCH = 1).
+/// tyLeQuyDoiDiem = số tiền chi tiêu để được 1 điểm; giaTriMotDiem = số tiền 1 điểm quy đổi khi dùng.
+model CauHinhHeThong {
+  maCH           Int     @id @default(1)
+  tenCuaHang     String  @db.NVarChar(150)
+  diaChi         String? @db.NVarChar(255)
+  soDienThoai    String? @db.VarChar(15)
+  logo           String? @db.NVarChar(500)
+  maSoThue       String? @db.VarChar(20)
+  tyLeQuyDoiDiem Decimal @default(10000) @db.Decimal(12, 2)
+  giaTriMotDiem  Decimal @default(1000) @db.Decimal(12, 2)
+  ttTienMat      Boolean @default(true)
+  ttQuetThe      Boolean @default(true)
+  ttMaQR         Boolean @default(true)
+
+  @@map("CauHinhHeThong")
+}
+
+/// 20. Nhật ký hệ thống. maTK null khi chưa đăng nhập (vd: đăng nhập thất bại)
+model NhatKyHeThong {
+  maLog    BigInt   @id @default(autoincrement())
+  maTK     Int?
+  thoiGian DateTime @default(now()) @db.DateTime2
+  module   String   @db.NVarChar(50)
+  hanhDong String   @db.NVarChar(50)
+  noiDung  String?  @db.NVarChar(Max)
+
+  taiKhoan TaiKhoan? @relation(fields: [maTK], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([thoiGian])
+  @@map("NhatKyHeThong")
+}
+
+/// 21. Bản sao lưu CSDL. kichThuoc tính bằng byte
+model BanSaoLuu {
+  maBackup     Int      @id @default(autoincrement())
+  maTK         Int
+  thoiGian     DateTime @default(now()) @db.DateTime2
+  duongDanFile String   @db.NVarChar(500)
+  kichThuoc    BigInt   @default(0)
+
+  taiKhoan TaiKhoan @relation(fields: [maTK], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("BanSaoLuu")
+}
