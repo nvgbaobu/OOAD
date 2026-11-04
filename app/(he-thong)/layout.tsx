@@ -16,6 +16,7 @@ export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
           {nd.vaiTro === "ADMIN" && <Link href="/dashboard" className="hover:underline">Dashboard</Link>}
           <Link href="/pos" className="hover:underline">Bán hàng</Link>
           <Link href="/hoa-don" className="hover:underline">Hóa đơn</Link>
+          <Link href="/khach-hang" className="hover:underline">Khách hàng</Link>
           <Link href="/sach" className="hover:underline">Sách</Link>
           <Link href="/kho" className="hover:underline">Kho</Link>
           {nd.vaiTro === "ADMIN" && <Link href="/nha-cung-cap" className="hover:underline">Nhà cung cấp</Link>}

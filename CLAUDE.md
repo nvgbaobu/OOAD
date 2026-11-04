@@ -134,6 +134,8 @@ npm run dev
   - Kiểm kê: `slHeThong` = tồn lúc lập; lệch thì bắt buộc lý do. **Duyệt = cộng chênh lệch (slThucTe − slHeThong) vào tồn hiện tại**, không ghi đè bằng slThucTe (giữa lúc lập và duyệt có thể đã bán thêm). Một sách không được nằm trong 2 phiếu kiểm kê chờ duyệt cùng lúc.
   - Xuất hủy: SL hủy ≤ tồn − tạm giữ, bắt buộc lý do mỗi dòng; không giữ chỗ khi lập, kiểm tra lại lúc duyệt.
   - Duyệt trong 1 transaction, chuyển trạng thái có điều kiện `WHERE trangThai = 'CHO_DUYET'`; 1 dòng không đủ hàng → rollback cả phiếu, phiếu vẫn chờ duyệt. Nhật ký module `KHO`: LAP_/DUYET_/TU_CHOI_ + KIEM_KE | XUAT_HUY. Giá trị tồn / giá trị hủy (theo giá nhập) chỉ Admin thấy.
+- 04/11/2026 – **Khách hàng** (`/khach-hang`, nghiệp vụ ở `khachHangService.ts`, POS tạo nhanh cũng dùng `taoMoi`): Staff và Admin tra cứu (SĐT/tên/email, lọc hạng, sắp theo điểm), thêm, sửa thông tin (kể cả đổi SĐT, vẫn duy nhất). **Điểm không sửa tay** – chỉ đổi qua thanh toán/hủy hóa đơn. Chỉ Admin xóa khách, và chỉ khi khách chưa có hóa đơn nào. Trang chi tiết: thống kê mua (chỉ tính DA_THANH_TOAN), số điểm còn thiếu để lên hạng kế, lịch sử tích/đổi điểm suy ra từ hóa đơn (không thêm bảng). `kiemTra` gom lỗi theo ô (`loiTruong`); message = lỗi đầu tiên nếu chỉ 1 lỗi (POS hiển thị message).
+- 04/11/2026 – **Hạng thành viên** (`/khach-hang/hang`, chỉ Admin): thêm/sửa/xóa hạng; tên và mốc điểm duy nhất; ưu đãi 0–50% (tối đa 2 số lẻ); **luôn có đúng 1 hạng mốc 0 điểm** (hạng khách mới – không đổi mốc, không xóa). **Hạng của khách = hạng có mốc cao nhất ≤ diemTichLuy**: mỗi lần lưu/xóa hạng → xét lại hạng toàn bộ khách bằng 1 câu UPDATE (`khachHangRepository.xetLaiHang`, có thể hạ hạng). Nhật ký module `HANG_THANH_VIEN`. Tỷ lệ quy đổi điểm chỉ hiển thị ở đây, sửa ở Cài đặt (module 10).
 - 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: **`/hoa-don/[maHD]`** (POS thanh toán xong chuyển tới đây), in bằng `window.print()` (header ẩn khi in).
 - 04/11/2026 – **Hóa đơn** (`/hoa-don`, nghiệp vụ ở `hoaDonService.ts`): tra cứu theo số HĐ (`123`/`#123`), SĐT/tên khách, khoảng ngày (theo `thoiGianTao` = lúc thanh toán, giờ máy chủ), trạng thái (Đã thanh toán / Đã hủy sau thanh toán / Đơn nháp đã hủy), phương thức, nhân viên (Admin); 20 HĐ/trang; không liệt kê đơn DANG_LAP. Dòng tổng hợp: doanh thu chỉ tính DA_THANH_TOAN.
   - **Hủy hóa đơn đã thanh toán** (chỉ Admin, lý do bắt buộc ≤ 255 ký tự, 1 transaction, chuyển trạng thái có điều kiện): hoàn kho từng dòng; khách: `diemHienTai += diemSuDung − diemCong` (**khách đã tiêu bớt điểm thì về 0**, nhật ký ghi số điểm hụt), `diemTichLuy −= diemCong`, **xét lại hạng theo điểm tích lũy (có thể hạ hạng)**; hoàn 1 lượt mã giảm giá; số tiền trên hóa đơn giữ nguyên; `lyDoHuy`, `thoiGianCapNhat` = lúc hủy. Nhật ký `HOA_DON/HUY`. Không hủy được đơn chưa thanh toán (đơn nháp hủy ở POS).
@@ -160,7 +162,8 @@ npm run dev
 - [x] Tồn kho + phiếu kiểm kê / xuất hủy, lập → duyệt / từ chối (04/11/2026, branch `feature/ton-kho`). Kiểm thử: `npm run test:kho`.
 - [x] Nhà cung cấp + phiếu nhập (04/11/2026, branch `feature/nha-cung-cap`). Kiểm thử: `npm run test:nhap`.
 - [x] Hóa đơn: tra cứu, chi tiết/in, hủy hóa đơn đã thanh toán (04/11/2026, branch `feature/hoa-don`). Kiểm thử: `npm run test:hoa-don`.
-- [ ] Các module còn lại (7–10), mỗi module 1 branch `feature/<module>`.
+- [x] Khách hàng + hạng thành viên & tích điểm (04/11/2026, branch `feature/khach-hang`). Kiểm thử: `npm run test:khach-hang`.
+- [ ] Các module còn lại (8–10), mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
 - Thống nhất trạng thái phiếu "Đã duyệt" (UC7.3 đang ghi "Hoàn tất").
