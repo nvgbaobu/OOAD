@@ -134,7 +134,10 @@ npm run dev
   - Kiểm kê: `slHeThong` = tồn lúc lập; lệch thì bắt buộc lý do. **Duyệt = cộng chênh lệch (slThucTe − slHeThong) vào tồn hiện tại**, không ghi đè bằng slThucTe (giữa lúc lập và duyệt có thể đã bán thêm). Một sách không được nằm trong 2 phiếu kiểm kê chờ duyệt cùng lúc.
   - Xuất hủy: SL hủy ≤ tồn − tạm giữ, bắt buộc lý do mỗi dòng; không giữ chỗ khi lập, kiểm tra lại lúc duyệt.
   - Duyệt trong 1 transaction, chuyển trạng thái có điều kiện `WHERE trangThai = 'CHO_DUYET'`; 1 dòng không đủ hàng → rollback cả phiếu, phiếu vẫn chờ duyệt. Nhật ký module `KHO`: LAP_/DUYET_/TU_CHOI_ + KIEM_KE | XUAT_HUY. Giá trị tồn / giá trị hủy (theo giá nhập) chỉ Admin thấy.
-- 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: `/pos/hoa-don/[maHD]`, in bằng `window.print()` (header ẩn khi in).
+- 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: **`/hoa-don/[maHD]`** (POS thanh toán xong chuyển tới đây), in bằng `window.print()` (header ẩn khi in).
+- 04/11/2026 – **Hóa đơn** (`/hoa-don`, nghiệp vụ ở `hoaDonService.ts`): tra cứu theo số HĐ (`123`/`#123`), SĐT/tên khách, khoảng ngày (theo `thoiGianTao` = lúc thanh toán, giờ máy chủ), trạng thái (Đã thanh toán / Đã hủy sau thanh toán / Đơn nháp đã hủy), phương thức, nhân viên (Admin); 20 HĐ/trang; không liệt kê đơn DANG_LAP. Dòng tổng hợp: doanh thu chỉ tính DA_THANH_TOAN.
+  - **Hủy hóa đơn đã thanh toán** (chỉ Admin, lý do bắt buộc ≤ 255 ký tự, 1 transaction, chuyển trạng thái có điều kiện): hoàn kho từng dòng; khách: `diemHienTai += diemSuDung − diemCong` (**khách đã tiêu bớt điểm thì về 0**, nhật ký ghi số điểm hụt), `diemTichLuy −= diemCong`, **xét lại hạng theo điểm tích lũy (có thể hạ hạng)**; hoàn 1 lượt mã giảm giá; số tiền trên hóa đơn giữ nguyên; `lyDoHuy`, `thoiGianCapNhat` = lúc hủy. Nhật ký `HOA_DON/HUY`. Không hủy được đơn chưa thanh toán (đơn nháp hủy ở POS).
+  - Seed: 3 hóa đơn mẫu có khách thành viên (#2 Nam/Bạc, #4 Hà/Vàng, #7 Mai/Đồng) để minh họa ưu đãi hạng, điểm cộng và hủy hóa đơn.
 - 04/11/2026 – Hash mật khẩu dùng **`bcryptjs`** (thuần JS, cùng định dạng hash bcrypt, không cần build native).
 - 04/11/2026 – Tên model Prisma = tên bảng (PascalCase tiếng Việt, `@@map` giữ đúng tên bảng); client dùng camelCase: `prisma.taiKhoan`, `prisma.hoaDon`...
 - 04/11/2026 – Khóa chính dạng INT IDENTITY (riêng `NhatKyHeThong.maLog` BIGINT). Bảng chi tiết dùng khóa ghép, xóa phiếu/hóa đơn cha thì xóa chi tiết (CASCADE); các FK khác NO ACTION.
@@ -156,7 +159,8 @@ npm run dev
 - [x] Quản lý sách + thể loại & VAT (04/11/2026, branch `feature/quan-ly-sach`). Kiểm thử: `npm run test:sach`; chạy cả bộ: `npm test` (**ghi DB thật, xong tự seed lại**).
 - [x] Tồn kho + phiếu kiểm kê / xuất hủy, lập → duyệt / từ chối (04/11/2026, branch `feature/ton-kho`). Kiểm thử: `npm run test:kho`.
 - [x] Nhà cung cấp + phiếu nhập (04/11/2026, branch `feature/nha-cung-cap`). Kiểm thử: `npm run test:nhap`.
-- [ ] Các module còn lại (6–10), mỗi module 1 branch `feature/<module>`.
+- [x] Hóa đơn: tra cứu, chi tiết/in, hủy hóa đơn đã thanh toán (04/11/2026, branch `feature/hoa-don`). Kiểm thử: `npm run test:hoa-don`.
+- [ ] Các module còn lại (7–10), mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
 - Thống nhất trạng thái phiếu "Đã duyệt" (UC7.3 đang ghi "Hoàn tất").

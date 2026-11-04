@@ -2,27 +2,40 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
-import { posService, TEN_PHUONG_THUC, type PhuongThucTT } from "@/lib/services/posService";
+import { TEN_PHUONG_THUC, type PhuongThucTT } from "@/lib/services/posService";
+import { hoaDonService } from "@/lib/services/hoaDonService";
+import { huyHoaDon } from "@/app/actions/hoaDon";
+import FormHanhDong from "@/app/components/FormHanhDong";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
 import { tienVND, ngayGio } from "@/lib/dinhDang";
 import NutIn from "./NutIn";
 
 export const metadata: Metadata = { title: "Hóa đơn" };
 
-export default async function TrangHoaDon({ params }: PageProps<"/pos/hoa-don/[maHD]">) {
+export default async function TrangHoaDon({ params }: PageProps<"/hoa-don/[maHD]">) {
   const nd = await yeuCauDangNhap("ADMIN", "STAFF");
   const maHD = Number.parseInt((await params).maHD, 10);
-  const [hd, ch] = await Promise.all([Number.isInteger(maHD) ? posService.xemHoaDon(maHD, nd) : null, cauHinhRepository.lay()]);
+  const [hd, ch] = await Promise.all([Number.isInteger(maHD) ? hoaDonService.xem(maHD, nd) : null, cauHinhRepository.lay()]);
   if (!hd) notFound();
 
   const tienThua = hd.tienKhachDua ? Number(hd.tienKhachDua) - Number(hd.tongTien) : 0;
+  const daHuy = hd.trangThai === "DA_HUY";
+  const coTheHuy = nd.vaiTro === "ADMIN" && hd.trangThai === "DA_THANH_TOAN";
 
   return (
     <div className="mx-auto max-w-md">
       <div className="mb-3 flex gap-2 print:hidden">
         <NutIn />
         <Link href="/pos" className="rounded border bg-white px-3 py-1.5 hover:bg-gray-50">Đơn mới</Link>
+        <Link href="/hoa-don" className="ml-auto self-center text-sm text-blue-600 hover:underline">← Danh sách hóa đơn</Link>
       </div>
+
+      {daHuy && (
+        <p className="mb-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800 print:hidden">
+          {hd.phuongThucTT ? "Hóa đơn đã thanh toán và bị hủy" : "Đơn nháp đã hủy (chưa thanh toán)"} lúc {ngayGio(hd.thoiGianCapNhat)}.
+          {hd.phuongThucTT && ` Đã hoàn kho${hd.khachHang ? ", thu hồi điểm đã cộng" : ""}${hd.diemSuDung ? ", hoàn điểm đã dùng" : ""}${hd.maGiamGia ? ", hoàn lượt mã giảm giá" : ""}.`} Lý do: {hd.lyDoHuy}
+        </p>
+      )}
 
       <article className="rounded-lg border bg-white p-5 text-sm print:border-0">
         <header className="mb-3 text-center">
@@ -74,11 +87,28 @@ export default async function TrangHoaDon({ params }: PageProps<"/pos/hoa-don/[m
               <Dong nhan="Tiền thừa" giaTri={tienVND(tienThua)} />
             </>
           )}
-          {hd.khachHang && <Dong nhan="Điểm được cộng" giaTri={`${hd.diemCong} điểm`} />}
+          {hd.khachHang && <Dong nhan="Điểm được cộng" giaTri={`${hd.diemCong} điểm${daHuy && hd.phuongThucTT ? " (đã thu hồi)" : ""}`} />}
         </dl>
 
         <p className="mt-4 text-center italic">Cảm ơn quý khách và hẹn gặp lại!</p>
       </article>
+
+      {coTheHuy && (
+        <details className="mt-4 rounded-lg border border-red-200 bg-white p-3 text-sm print:hidden">
+          <summary className="cursor-pointer font-medium text-red-700">Hủy hóa đơn</summary>
+          <p className="my-2 text-gray-600">
+            Sách được hoàn về kho
+            {hd.khachHang && `, khách bị trừ ${hd.diemCong} điểm đã cộng`}
+            {hd.diemSuDung > 0 && ` và được hoàn ${hd.diemSuDung} điểm đã dùng`}
+            {hd.maGiamGia && `, hoàn 1 lượt mã ${hd.maGiamGia.maCode}`}. Không hoàn tác được.
+          </p>
+          <FormHanhDong action={huyHoaDon} xacNhan={`Hủy hóa đơn #${hd.maHD} (${tienVND(hd.tongTien)})?`} className="flex flex-wrap gap-2">
+            <input type="hidden" name="maHD" value={hd.maHD} />
+            <input name="lyDoHuy" required maxLength={255} placeholder="Lý do hủy (bắt buộc), VD: khách trả hàng" className="flex-1 rounded border px-2 py-1" />
+            <button className="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700">Hủy hóa đơn</button>
+          </FormHanhDong>
+        </details>
+      )}
     </div>
   );
 }
