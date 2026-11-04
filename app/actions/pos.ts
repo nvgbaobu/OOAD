@@ -84,5 +84,5 @@ export async function thanhToan(_: KetQuaHanhDong, fd: FormData): Promise<KetQua
     if (e instanceof LoiPOS) return { loi: e.message };
     throw e;
   }
-  redirect(`/pos/hoa-don/${maHD}`); // ngoài try/catch
+  redirect(`/hoa-don/${maHD}`); // ngoài try/catch
 }

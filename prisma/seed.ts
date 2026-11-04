@@ -136,7 +136,8 @@ async function main() {
     { soDienThoai: "0977777777", hoTen: "Ngô Quốc Bảo", email: "bao.ngo@gmail.com", diemHienTai: 2100, diemTichLuy: 3400, maHang: hangVang.maHang },
     { soDienThoai: "0988888888", hoTen: "Bùi Thanh Tâm", diaChi: "Bình Thạnh, TP.HCM", diemHienTai: 75, diemTichLuy: 175, maHang: hangDong.maHang },
   ];
-  for (const kh of dsKhach) await prisma.khachHang.create({ data: kh });
+  const khach = [];
+  for (const kh of dsKhach) khach.push(await prisma.khachHang.create({ data: kh, include: { hangThanhVien: true } }));
 
   // ── 12. Nhà cung cấp
   const ncc: NhaCungCap[] = [];
@@ -166,16 +167,17 @@ async function main() {
     },
   });
 
-  // ── 10–11. Một số hóa đơn đã thanh toán (khách vãng lai, không giảm giá; VAT 0%/5% theo thể loại) cho Dashboard.
+  // ── 10–11. Một số hóa đơn đã thanh toán (VAT 0%/5% theo thể loại) cho Dashboard / màn hình Hóa đơn.
+  // 3 đơn có khách thành viên (ưu đãi hạng + điểm cộng); điểm của khách ở trên coi như ĐÃ gồm điểm cộng này.
   // Tồn kho ở trên coi như ĐÃ trừ số bán này.
-  const dsDon: { ngay: number; nv: number; tt: string; dong: [number, number][] }[] = [
+  const dsDon: { ngay: number; nv: number; tt: string; dong: [number, number][]; kh?: number }[] = [
     { ngay: 6, nv: staff1.maTK, tt: "TIEN_MAT", dong: [[0, 1], [12, 2]] },
-    { ngay: 5, nv: staff2.maTK, tt: "MA_QR", dong: [[5, 1], [15, 3]] },
+    { ngay: 5, nv: staff2.maTK, tt: "MA_QR", dong: [[5, 1], [15, 3]], kh: 1 },
     { ngay: 4, nv: staff1.maTK, tt: "QUET_THE", dong: [[20, 1]] },
-    { ngay: 3, nv: staff1.maTK, tt: "TIEN_MAT", dong: [[9, 1], [10, 1], [13, 1]] },
+    { ngay: 3, nv: staff1.maTK, tt: "TIEN_MAT", dong: [[9, 1], [10, 1], [13, 1]], kh: 2 },
     { ngay: 2, nv: staff2.maTK, tt: "TIEN_MAT", dong: [[23, 1], [24, 1]] },
     { ngay: 1, nv: staff1.maTK, tt: "MA_QR", dong: [[16, 4], [3, 2]] },
-    { ngay: 0, nv: staff2.maTK, tt: "TIEN_MAT", dong: [[6, 1], [26, 1]] },
+    { ngay: 0, nv: staff2.maTK, tt: "TIEN_MAT", dong: [[6, 1], [26, 1]], kh: 0 },
   ];
   for (const don of dsDon) {
     const chiTiets = don.dong.map(([i, soLuong]) => {
@@ -183,11 +185,16 @@ async function main() {
       const thueSuatVAT = thueSuatTheoTL[sach[i].maTL];
       return { maSach: sach[i].maSach, soLuong, donGiaBan, thanhTien: donGiaBan * soLuong, thueSuatVAT };
     });
-    const tien = tinhTienHoaDon({ dong: chiTiets, giaTriMotDiem: 1000, tyLeQuyDoiDiem: 10000 });
+    const kh = don.kh === undefined ? null : khach[don.kh];
+    const tien = tinhTienHoaDon({
+      dong: chiTiets, giaTriMotDiem: 1000, tyLeQuyDoiDiem: 10000,
+      coKhachHang: !!kh, phanTramUuDaiHang: kh ? Number(kh.hangThanhVien.phanTramUuDai) : 0,
+    });
     await prisma.hoaDon.create({
       data: {
-        maTK: don.nv, thoiGianTao: ngayTruoc(don.ngay, 9 + don.ngay), trangThai: "DA_THANH_TOAN",
-        tamTinh: tien.tamTinh, thueVAT: tien.thueVAT, tongTien: tien.tongTien, phuongThucTT: don.tt,
+        maTK: don.nv, maKH: kh?.maKH, thoiGianTao: ngayTruoc(don.ngay, 9 + don.ngay), trangThai: "DA_THANH_TOAN",
+        tamTinh: tien.tamTinh, giamHangThe: tien.giamHang, thueVAT: tien.thueVAT, tongTien: tien.tongTien, diemCong: tien.diemCong,
+        phuongThucTT: don.tt,
         tienKhachDua: don.tt === "TIEN_MAT" ? Math.ceil(tien.tongTien / 50000) * 50000 : tien.tongTien,
         chiTiets: { create: chiTiets },
       },
