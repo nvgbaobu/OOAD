@@ -59,9 +59,10 @@ export default async function TrangHoaDon({ params }: PageProps<"/pos/hoa-don/[m
 
         <dl className="space-y-0.5">
           <Dong nhan="Tạm tính" giaTri={tienVND(hd.tamTinh)} />
-          {Number(hd.tienGiam) > 0 && <Dong nhan="Giảm giá (hạng thẻ, mã, điểm)" giaTri={`−${tienVND(hd.tienGiam)}`} />}
-          {hd.maGiamGia && <Dong nhan="  · Mã giảm giá" giaTri={hd.maGiamGia.maCode} />}
-          {hd.diemSuDung > 0 && <Dong nhan="  · Điểm đã dùng" giaTri={`${hd.diemSuDung} điểm`} />}
+          {Number(hd.giamCombo) > 0 && <Dong nhan="Giảm combo" giaTri={`−${tienVND(hd.giamCombo)}`} />}
+          {Number(hd.giamHangThe) > 0 && <Dong nhan="Ưu đãi hạng thẻ" giaTri={`−${tienVND(hd.giamHangThe)}`} />}
+          {Number(hd.giamMaGiamGia) > 0 && <Dong nhan={`Mã giảm giá ${hd.maGiamGia?.maCode ?? ""}`} giaTri={`−${tienVND(hd.giamMaGiamGia)}`} />}
+          {Number(hd.giamDiem) > 0 && <Dong nhan={`Đổi ${hd.diemSuDung} điểm`} giaTri={`−${tienVND(hd.giamDiem)}`} />}
           <Dong nhan="Thuế GTGT" giaTri={tienVND(hd.thueVAT)} />
           <div className="flex justify-between border-t pt-1 text-base font-bold">
             <dt>TỔNG CỘNG</dt><dd>{tienVND(hd.tongTien)}</dd>

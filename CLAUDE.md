@@ -29,7 +29,7 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 7. MaGiamGia(maMGG PK, maCode UQ, loaiGiam PHAN_TRAM|SO_TIEN, giaTriGiam, giaTriDonToiThieu, soLuongToiDa, daSuDung, ngayBatDau, ngayKetThuc, trangThai)
 8. Combo(maCombo PK, tenCombo, giaCombo, ngayBatDau, ngayKetThuc, trangThai)
 9. ChiTietCombo(maCombo PK/FK, maSach PK/FK, soLuong)
-10. HoaDon(maHD PK, maTK FK, maKH FK null, maMGG FK null, thoiGianTao, trangThai DANG_LAP|DA_THANH_TOAN|DA_HUY, tamTinh, thueVAT, tienGiam, diemSuDung, diemCong, tongTien, phuongThucTT TIEN_MAT|QUET_THE|MA_QR, tienKhachDua, lyDoHuy)
+10. HoaDon(maHD PK, maTK FK, maKH FK null, maMGG FK null, thoiGianTao, thoiGianCapNhat, trangThai DANG_LAP|DA_THANH_TOAN|DA_HUY, tamTinh, giamCombo, giamHangThe, giamMaGiamGia, giamDiem, thueVAT, diemSuDung, diemCong, tongTien, phuongThucTT TIEN_MAT|QUET_THE|MA_QR, tienKhachDua, lyDoHuy)
 11. ChiTietHoaDon(maHD PK/FK, maSach PK/FK, soLuong, donGiaBan [snapshot giá lúc bán], thanhTien, thueSuatVAT [snapshot thuế suất thể loại lúc bán])
 12. NhaCungCap(maNCC PK, tenNCC, diaChi, maSoThue UQ, nguoiLienHe, soDienThoai, trangThaiHopTac DANG_GIAO_DICH|NGUNG_GIAO_DICH)
 13. PhieuNhap(maPN PK, maNCC FK, maTKLap FK, maTKDuyet FK null, ngayLap, ngayDuyet, trangThai CHO_DUYET|DA_DUYET|TU_CHOI, tongTien, ghiChu, lyDoTuChoi)
@@ -45,11 +45,12 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 ## Quy tắc nghiệp vụ quan trọng
 - Thêm sách vào đơn đang lập → tăng `soLuongTamGiu`; thanh toán → trừ `soLuongTon` và giải phóng tạm giữ; hủy đơn nháp → giải phóng tạm giữ. Số bán được = soLuongTon − soLuongTamGiu.
 - Phiếu nhập / kiểm kê / xuất hủy: Staff lập (CHO_DUYET) → Admin duyệt (cộng/trừ kho) hoặc từ chối (kho không đổi).
-- Thanh toán – **thứ tự áp ưu đãi: hạng thẻ → mã giảm giá → đổi điểm, VAT tính SAU giảm**. Cài đặt duy nhất ở `lib/services/tinhTienHoaDon.ts` (hàm thuần, POS và seed dùng chung – không tự tính lại ở chỗ khác):
-  1. `giamHang` = tamTinh × phanTramUuDai của hạng.
-  2. Mã giảm giá: kiểm tra hạn, lượt dùng (ở service) và đơn tối thiểu (xét trên số tiền **sau** ưu đãi hạng); PHAN_TRAM tính trên số tiền sau ưu đãi hạng.
-  3. Đổi điểm: diemSuDung ≤ diemHienTai, giá trị = điểm × giaTriMotDiem, không vượt số tiền còn lại.
-  4. VAT: tổng giảm phân bổ theo tỷ lệ thanhTien từng dòng, mỗi dòng nhân thuế suất của thể loại. tongTien = tiền sau giảm + VAT. Làm tròn đến đồng.
+- Thanh toán – **thứ tự: Tạm tính → Combo → ưu đãi hạng thẻ (%) → mã giảm giá → đổi điểm → + VAT = Tổng tiền** (VAT tính SAU giảm). Cài đặt duy nhất ở `lib/services/tinhTienHoaDon.ts` (hàm thuần, POS và seed dùng chung – không tự tính lại ở chỗ khác). Mỗi khoản lưu riêng vào `HoaDon.giamCombo/giamHangThe/giamMaGiamGia/giamDiem`:
+  1. **Combo** (còn hiệu lực: HOAT_DONG + trong ngày áp dụng): đếm số BỘ đủ trong giỏ; giảm = (tổng giá lẻ 1 bộ − giaCombo) × số bộ. Một cuốn chỉ thuộc 1 bộ; combo tiết kiệm nhiều hơn/bộ xét trước; combo không rẻ hơn giá lẻ bị bỏ qua. ChiTietHoaDon vẫn lưu từng cuốn với giá lẻ.
+  2. `giamHangThe` = (tiền sau combo) × phanTramUuDai của hạng.
+  3. Mã giảm giá: kiểm tra hạn, lượt dùng (ở service) và **đơn tối thiểu xét trên số tiền sau combo**; PHAN_TRAM tính trên số tiền sau ưu đãi hạng.
+  4. Đổi điểm: diemSuDung ≤ diemHienTai, giá trị = điểm × giaTriMotDiem, không vượt số tiền còn lại.
+  5. VAT: giảm combo phân bổ cho các dòng thuộc combo; các khoản giảm còn lại phân bổ theo tỷ lệ tiền từng dòng; mỗi dòng nhân thuế suất của thể loại. Làm tròn đến đồng.
   - Cộng điểm = floor(tongTien / tyLeQuyDoiDiem) (chỉ khi có KH thành viên); xét thăng hạng theo diemTichLuy.
 - **Thuế GTGT sách**: 0% (không chịu thuế) cho sách phục vụ chính trị, giáo dục, văn hóa (sách giáo khoa, giáo trình, chính trị – pháp luật, khoa học, lịch sử...); 5% cho sách còn lại (tham khảo, ngoại ngữ, truyện, kỹ năng sống...). Thuế suất gắn theo **thể loại** (`TheLoai.thueSuatVAT`) → khi thêm sách phải chọn đúng thể loại.
 - Hủy hóa đơn đã thanh toán (chỉ Admin, bắt buộc lý do): hoàn kho, trừ điểm khách.
@@ -109,6 +110,7 @@ npm run dev
 - 04/11/2026 – Không dùng `next/font/google` (máy POS có thể không có Internet khi build) → font hệ thống.
 - 04/11/2026 – **POS**: giỏ hàng = hóa đơn `DANG_LAP` lưu trong DB, mỗi nhân viên tối đa 1 đơn đang lập (khách, mã, điểm cũng lưu trên đơn). Thêm sách → tăng tạm giữ; giá bán và thuế suất được **chụp lúc thêm vào đơn**. **Hủy đơn đang lập = xóa đơn nháp** (giải phóng tạm giữ, ghi nhật ký `HUY_DON_DANG_LAP`), không để lại hóa đơn DA_HUY – trạng thái DA_HUY dành cho hủy hóa đơn đã thanh toán.
 - 04/11/2026 – Khi thanh toán, `HoaDon.thoiGianTao` được đặt lại = **thời điểm thanh toán** (báo cáo doanh thu theo ngày dùng cột này).
+- 04/11/2026 – **Tách `HoaDon.tienGiam` thành `giamCombo`, `giamHangThe`, `giamMaGiamGia`, `giamDiem`** (bill hiện từng khoản, báo cáo + hoàn điểm chính xác) và thêm `HoaDon.thoiGianCapNhat` (migration `tach_tien_giam_va_thoi_gian_cap_nhat`, viết tay). Vẫn 21 bảng. POS có **Combo** bản đơn giản (xem Quy tắc nghiệp vụ).
 - 04/11/2026 – Thêm cột `HoaDon.diemCong` (migration `them_diem_cong_hoa_don`) để khi hủy hóa đơn đã thanh toán trừ đúng số điểm đã cộng.
 - 04/11/2026 – Mã giảm giá kiểm tra (trạng thái, ngày, lượt) lúc áp **và** lúc thanh toán; lượt dùng tăng khi thanh toán. Đổi mã → số điểm đã nhập bị đặt lại 0. Bỏ khách hàng → bỏ điểm. Mã nhập không phân biệt hoa/thường.
 - 04/11/2026 – Thăng hạng: sau thanh toán, hạng = hạng có `diemToiThieu` cao nhất ≤ `diemTichLuy` (chỉ nâng, không hạ).
@@ -125,7 +127,6 @@ npm run dev
 
 ## Câu hỏi còn mở (cần nhóm chốt)
 - Đơn đang lập bị bỏ quên vẫn giữ hàng (tạm giữ) mãi. Có cần tự hủy đơn nháp quá X giờ / khi đăng xuất không?
-- POS chưa bán **Combo** (bảng Combo có sẵn) và chưa **tạo nhanh khách hàng** tại quầy (chỉ chọn khách đã có). Có cần không?
 - Điểm cộng đang tính trên `tongTien` (đã gồm VAT, sau mọi giảm giá). Nếu muốn tính trên tiền trước thuế thì sửa 1 dòng trong `tinhTienHoaDon.ts`.
 
 ## Tiến độ
@@ -137,4 +138,5 @@ npm run dev
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
 - Thống nhất trạng thái phiếu "Đã duyệt" (UC7.3 đang ghi "Hoàn tất").
+- **Cần sửa báo cáo** (04/11/2026): lược đồ HoaDon đổi (thêm thoiGianCapNhat, tách tienGiam thành 4 cột giamCombo/giamHangThe/giamMaGiamGia/giamDiem); UC3.3 thêm luồng "Hệ thống tự hủy đơn quá hạn"; UC1.2 ghi rõ đơn nháp bị hủy khi đăng xuất; thứ tự giảm giá Combo → hạng → mã → điểm → VAT.
 - Hình đánh số tiếp từ Hình 3.59 (lược đồ CSDL).

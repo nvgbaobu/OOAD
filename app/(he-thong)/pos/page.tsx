@@ -182,6 +182,9 @@ export default async function TrangPOS({ searchParams }: PageProps<"/pos">) {
               <div className="space-y-1 border-t pt-3 text-sm">
                 {canhBao && <p className="rounded bg-yellow-50 p-2 text-yellow-800">⚠ {canhBao}. Mã/điểm tạm thời không được tính.</p>}
                 <Dong nhan="Tạm tính" giaTri={tien.tamTinh} />
+                {tien.combosApDung.map((c) => (
+                  <Dong key={c.tenCombo} nhan={`${c.tenCombo}${c.soBo > 1 ? ` ×${c.soBo}` : ""}`} giaTri={-c.giam} />
+                ))}
                 {tien.giamHang > 0 && <Dong nhan={`Ưu đãi hạng ${kh?.hangThanhVien.tenHang}`} giaTri={-tien.giamHang} />}
                 {tien.giamMa > 0 && <Dong nhan={`Mã ${don.maGiamGia?.maCode}`} giaTri={-tien.giamMa} />}
                 {tien.giamDiem > 0 && <Dong nhan={`Đổi ${don.diemSuDung} điểm`} giaTri={-tien.giamDiem} />}

@@ -9,8 +9,9 @@ import { hoaDonRepository } from "@/lib/repositories/hoaDonRepository";
 import { khachHangRepository } from "@/lib/repositories/khachHangRepository";
 import { maGiamGiaRepository } from "@/lib/repositories/maGiamGiaRepository";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
+import { comboRepository } from "@/lib/repositories/comboRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
-import { tinhTienHoaDon, LoiTinhTien, type KetQuaTinhTien } from "@/lib/services/tinhTienHoaDon";
+import { tinhTienHoaDon, LoiTinhTien, type KetQuaTinhTien, type ComboTinhTien } from "@/lib/services/tinhTienHoaDon";
 
 /** Lỗi nghiệp vụ – thông điệp hiển thị thẳng cho người dùng. */
 export class LoiPOS extends Error {}
@@ -20,6 +21,19 @@ export const TEN_PHUONG_THUC: Record<PhuongThucTT, string> = { TIEN_MAT: "Tiền
 
 type DonDangLap = NonNullable<Awaited<ReturnType<typeof hoaDonRepository.layDonDangLap>>>;
 type CauHinh = Awaited<ReturnType<typeof cauHinhRepository.lay>>;
+/** Cấu hình + combo còn hiệu lực – những thứ cần để tính tiền. */
+type BoiCanh = { cauHinh: CauHinh; combos: ComboTinhTien[] };
+
+async function layBoiCanh(db: Db = prisma): Promise<BoiCanh> {
+  const [cauHinh, combos] = await Promise.all([cauHinhRepository.lay(db), comboRepository.layConHieuLuc(db)]);
+  return {
+    cauHinh,
+    combos: combos.map((c) => ({
+      tenCombo: c.tenCombo, giaCombo: Number(c.giaCombo),
+      sach: c.chiTiets.map((ct) => ({ maSach: ct.maSach, soLuong: ct.soLuong })),
+    })),
+  };
+}
 
 const MODULE = "BAN_HANG";
 
@@ -35,11 +49,15 @@ function kiemTraMaConHieuLuc(ma: { trangThai: string; ngayBatDau: Date; ngayKetT
 }
 
 /** Tính tiền cho đơn đang lập; ném LoiTinhTien nếu mã/điểm không còn hợp lệ. */
-function tinhTienDon(don: DonDangLap, cauHinh: CauHinh, ghiDe?: { maGiamGia?: DonDangLap["maGiamGia"]; diemSuDung?: number }): KetQuaTinhTien {
+function tinhTienDon(don: DonDangLap, { cauHinh, combos }: BoiCanh, ghiDe?: { maGiamGia?: DonDangLap["maGiamGia"]; diemSuDung?: number }): KetQuaTinhTien {
   const ma = ghiDe && "maGiamGia" in ghiDe ? ghiDe.maGiamGia : don.maGiamGia;
   const kh = don.khachHang;
   return tinhTienHoaDon({
-    dong: don.chiTiets.map((c) => ({ thanhTien: Number(c.thanhTien), thueSuatVAT: Number(c.thueSuatVAT) })),
+    dong: don.chiTiets.map((c) => ({
+      maSach: c.maSach, soLuong: c.soLuong, donGia: Number(c.donGiaBan),
+      thanhTien: Number(c.thanhTien), thueSuatVAT: Number(c.thueSuatVAT),
+    })),
+    combos,
     phanTramUuDaiHang: kh ? Number(kh.hangThanhVien.phanTramUuDai) : 0,
     maGiamGia: ma
       ? { loaiGiam: ma.loaiGiam as "PHAN_TRAM" | "SO_TIEN", giaTriGiam: Number(ma.giaTriGiam), giaTriDonToiThieu: Number(ma.giaTriDonToiThieu) }
@@ -80,7 +98,8 @@ export const posService = {
 
   /** Dữ liệu màn hình POS: đơn đang lập + tiền + cấu hình thanh toán. */
   async layGioHang(maTK: number) {
-    const [don, cauHinh] = await Promise.all([hoaDonRepository.layDonDangLap(prisma, maTK), cauHinhRepository.lay()]);
+    const [don, boiCanh] = await Promise.all([hoaDonRepository.layDonDangLap(prisma, maTK), layBoiCanh()]);
+    const { cauHinh } = boiCanh;
     const phuongThuc = (Object.keys(TEN_PHUONG_THUC) as PhuongThucTT[]).filter(
       (p) => ({ TIEN_MAT: cauHinh.ttTienMat, QUET_THE: cauHinh.ttQuetThe, MA_QR: cauHinh.ttMaQR })[p],
     );
@@ -89,12 +108,12 @@ export const posService = {
     let canhBao: string | null = null;
     let tien: KetQuaTinhTien;
     try {
-      tien = tinhTienDon(don, cauHinh);
+      tien = tinhTienDon(don, boiCanh);
     } catch (e) {
       if (!(e instanceof LoiTinhTien)) throw e;
       // Vd: bớt sách làm đơn không còn đạt mức tối thiểu của mã → hiển thị cảnh báo, tạm tính không mã/điểm
       canhBao = e.message;
-      tien = tinhTienDon(don, cauHinh, { maGiamGia: null, diemSuDung: 0 });
+      tien = tinhTienDon(don, boiCanh, { maGiamGia: null, diemSuDung: 0 });
     }
     return { don, tien, canhBao, phuongThuc, giaTriMotDiem: Number(cauHinh.giaTriMotDiem) };
   },
@@ -164,13 +183,13 @@ export const posService = {
   },
 
   async apMaGiamGia(maTK: number, maCode: string) {
-    const [don, cauHinh] = await Promise.all([layDonBatBuoc(prisma, maTK), cauHinhRepository.lay()]);
+    const [don, boiCanh] = await Promise.all([layDonBatBuoc(prisma, maTK), layBoiCanh()]);
     const ma = await maGiamGiaRepository.timTheoCode(prisma, maCode);
     if (!ma) throw new LoiPOS(`Mã "${maCode}" không tồn tại`);
     const loi = kiemTraMaConHieuLuc(ma);
     if (loi) throw new LoiPOS(loi);
     try {
-      tinhTienDon(don, cauHinh, { maGiamGia: ma, diemSuDung: 0 }); // kiểm tra đơn tối thiểu
+      tinhTienDon(don, boiCanh, { maGiamGia: ma, diemSuDung: 0 }); // kiểm tra đơn tối thiểu
     } catch (e) {
       if (e instanceof LoiTinhTien) throw new LoiPOS(e.message);
       throw e;
@@ -186,10 +205,10 @@ export const posService = {
 
   async datDiemSuDung(maTK: number, diem: number) {
     if (!Number.isInteger(diem) || diem < 0) throw new LoiPOS("Số điểm không hợp lệ");
-    const [don, cauHinh] = await Promise.all([layDonBatBuoc(prisma, maTK), cauHinhRepository.lay()]);
+    const [don, boiCanh] = await Promise.all([layDonBatBuoc(prisma, maTK), layBoiCanh()]);
     if (!don.khachHang) throw new LoiPOS("Chọn khách hàng thành viên trước khi đổi điểm");
     try {
-      tinhTienDon(don, cauHinh, { diemSuDung: diem });
+      tinhTienDon(don, boiCanh, { diemSuDung: diem });
     } catch (e) {
       if (e instanceof LoiTinhTien) throw new LoiPOS(e.message);
       throw e;
@@ -213,7 +232,8 @@ export const posService = {
   /** Thanh toán đơn đang lập. Trả về maHD để in hóa đơn. */
   async thanhToan(maTK: number, phuongThucTT: PhuongThucTT, tienKhachDua: number | null) {
     return prisma.$transaction(async (tx) => {
-      const [don, cauHinh] = await Promise.all([layDonBatBuoc(tx, maTK), cauHinhRepository.lay(tx)]);
+      const [don, boiCanh] = await Promise.all([layDonBatBuoc(tx, maTK), layBoiCanh(tx)]);
+      const { cauHinh } = boiCanh;
       if (don.chiTiets.length === 0) throw new LoiPOS("Đơn hàng chưa có sách");
 
       const batPhuongThuc = { TIEN_MAT: cauHinh.ttTienMat, QUET_THE: cauHinh.ttQuetThe, MA_QR: cauHinh.ttMaQR };
@@ -227,7 +247,7 @@ export const posService = {
 
       let tien: KetQuaTinhTien;
       try {
-        tien = tinhTienDon(don, cauHinh);
+        tien = tinhTienDon(don, boiCanh);
       } catch (e) {
         if (e instanceof LoiTinhTien) throw new LoiPOS(e.message);
         throw e;
@@ -269,7 +289,8 @@ export const posService = {
         data: {
           trangThai: "DA_THANH_TOAN",
           thoiGianTao: new Date(), // = thời điểm thanh toán (dùng cho báo cáo doanh thu)
-          tamTinh: tien.tamTinh, thueVAT: tien.thueVAT, tienGiam: tien.tienGiam, tongTien: tien.tongTien,
+          tamTinh: tien.tamTinh, giamCombo: tien.giamCombo, giamHangThe: tien.giamHang, giamMaGiamGia: tien.giamMa,
+          giamDiem: tien.giamDiem, thueVAT: tien.thueVAT, tongTien: tien.tongTien,
           diemCong: tien.diemCong, phuongThucTT,
           tienKhachDua: phuongThucTT === "TIEN_MAT" ? tienKhachDua : tien.tongTien,
         },
