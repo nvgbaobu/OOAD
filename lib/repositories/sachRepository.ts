@@ -80,10 +80,19 @@ export const sachRepository = {
     return n === 1;
   },
 
+  /** Cập nhật giá nhập mới nhất (duyệt phiếu nhập) – chỉ khi vẫn ≤ giá bán. */
+  async capNhatGiaNhap(db: Db, maSach: number, giaNhap: number) {
+    const n = await db.$executeRaw`UPDATE Sach SET giaNhap = ${giaNhap} WHERE maSach = ${maSach} AND giaBan >= ${giaNhap}`;
+    return n === 1;
+  },
+
   /** Danh sách gọn để chọn sách khi lập phiếu kho. */
   tatCaDeChon: () =>
     prisma.sach.findMany({
-      select: { maSach: true, tenSach: true, isbn: true, viTriKe: true, soLuongTon: true, soLuongTamGiu: true, trangThai: true },
+      select: {
+        maSach: true, tenSach: true, isbn: true, viTriKe: true, soLuongTon: true, soLuongTamGiu: true, trangThai: true,
+        dinhMucToiThieu: true, giaNhap: true, giaBan: true,
+      },
       orderBy: { tenSach: "asc" },
     }),
 

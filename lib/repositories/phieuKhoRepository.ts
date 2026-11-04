@@ -1,5 +1,5 @@
-// Phiếu kiểm kê (PhieuKiemKe/ChiTietKiemKe) và phiếu xuất hủy (PhieuXuatHuy/ChiTietXuatHuy).
-// Hai loại phiếu có cùng vòng đời CHO_DUYET → DA_DUYET | TU_CHOI nên gom chung 1 repository.
+// Phiếu nhập (PhieuNhap/ChiTietPhieuNhap), phiếu kiểm kê (PhieuKiemKe/ChiTietKiemKe), phiếu xuất hủy (PhieuXuatHuy/ChiTietXuatHuy).
+// Ba loại phiếu có cùng vòng đời CHO_DUYET → DA_DUYET | TU_CHOI nên gom chung 1 repository.
 import { prisma } from "@/lib/prisma";
 import type { Db } from "@/lib/db";
 
@@ -59,11 +59,35 @@ export const phieuKhoRepository = {
     return r.count === 1;
   },
 
+  // ───────── Phiếu nhập ─────────
+  danhSachPhieuNhap: (trangThai?: string) =>
+    prisma.phieuNhap.findMany({
+      where: trangThai ? { trangThai } : undefined,
+      include: { nguoiLap: nguoi, nguoiDuyet: nguoi, nhaCungCap: { select: { tenNCC: true } }, _count: { select: { chiTiets: true } } },
+      orderBy: { maPN: "desc" },
+      take: 100,
+    }),
+  layPhieuNhap: (db: Db, maPN: number) =>
+    db.phieuNhap.findUnique({
+      where: { maPN },
+      include: {
+        nguoiLap: nguoi, nguoiDuyet: nguoi, nhaCungCap: true,
+        chiTiets: { include: { sach: true }, orderBy: { sach: { tenSach: "asc" } } },
+      },
+    }),
+  taoPhieuNhap: (db: Db, maTKLap: number, maNCC: number, ghiChu: string | null, tongTien: number, dong: { maSach: number; soLuong: number; giaNhap: number }[]) =>
+    db.phieuNhap.create({ data: { maTKLap, maNCC, ghiChu, tongTien, trangThai: "CHO_DUYET", chiTiets: { create: dong } } }),
+  async xuLyPhieuNhap(db: Db, maPN: number, data: { trangThai: string; maTKDuyet: number; lyDoTuChoi?: string }) {
+    const r = await db.phieuNhap.updateMany({ where: { maPN, trangThai: "CHO_DUYET" }, data: { ...data, ngayDuyet: new Date() } });
+    return r.count === 1;
+  },
+
   demChoDuyet: async () => {
-    const [kiemKe, xuatHuy] = await Promise.all([
+    const [phieuNhap, kiemKe, xuatHuy] = await Promise.all([
+      prisma.phieuNhap.count({ where: { trangThai: "CHO_DUYET" } }),
       prisma.phieuKiemKe.count({ where: { trangThai: "CHO_DUYET" } }),
       prisma.phieuXuatHuy.count({ where: { trangThai: "CHO_DUYET" } }),
     ]);
-    return { kiemKe, xuatHuy };
+    return { phieuNhap, kiemKe, xuatHuy };
   },
 };
