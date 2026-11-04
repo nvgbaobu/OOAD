@@ -49,6 +49,7 @@ async function main() {
   const maHD = await posService.thanhToan(maTK, "TIEN_MAT", 300000);
   const hd = await prisma.hoaDon.findUniqueOrThrow({ where: { maHD } });
   kiemTra(hd.trangThai === "DA_THANH_TOAN" && Number(hd.tongTien) === 275964 && hd.diemCong === 27, "HĐ đã thanh toán, điểm cộng 27");
+  kiemTra(Number(hd.giamHangThe) === 39500 && Number(hd.giamMaGiamGia) === 35550 && Number(hd.giamDiem) === 50000 && Number(hd.giamCombo) === 0, "HĐ lưu tách 4 khoản giảm");
   const s1 = await sach(sapiens.isbn);
   kiemTra(s1.soLuongTon === sapiens.soLuongTon - 1 && s1.soLuongTamGiu === 0, "Sapiens: tồn −1, tạm giữ về 0");
   const khSau = await prisma.khachHang.findUniqueOrThrow({ where: { soDienThoai: "0933333333" } });
@@ -67,6 +68,22 @@ async function main() {
   await posService.thanhToan(maTK, "QUET_THE", null);
   const mai = await prisma.khachHang.findUniqueOrThrow({ where: { soDienThoai: "0911111111" }, include: { hangThanhVien: true } });
   kiemTra(mai.hangThanhVien.tenHang === "Bạc", `thăng hạng: ${mai.diemTichLuy} điểm → ${mai.hangThanhVien.tenHang}`);
+
+  console.log("5. Combo (Mắt biếc 110k + Cho tôi xin một vé 85k = combo 175k)");
+  const matBiec = await sach("9786042000001");
+  const veTuoiTho = await sach("9786042000002");
+  await posService.themSach(maTK, matBiec.maSach, 2);
+  await posService.themSach(maTK, veTuoiTho.maSach, 1);
+  let gio = await posService.layGioHang(maTK);
+  // tạm tính 305.000, đủ 1 bộ (dư 1 Mắt biếc) → giảm 20.000 → 285.000, VAT 5% = 14.250 → 299.250
+  kiemTra(gio.tien!.giamCombo === 20000 && gio.tien!.combosApDung[0]?.soBo === 1, "1 bộ combo, giảm 20.000");
+  kiemTra(gio.tien!.tongTien === 299250, `tổng ${gio.tien!.tongTien} = 299.250`);
+  await posService.themSach(maTK, veTuoiTho.maSach, 1);
+  gio = await posService.layGioHang(maTK);
+  kiemTra(gio.tien!.giamCombo === 40000 && gio.tien!.combosApDung[0]?.soBo === 2, "2 bộ combo, giảm 40.000");
+  const maHDCombo = await posService.thanhToan(maTK, "MA_QR", null);
+  const hdCombo = await prisma.hoaDon.findUniqueOrThrow({ where: { maHD: maHDCombo } });
+  kiemTra(Number(hdCombo.giamCombo) === 40000 && Number(hdCombo.giamHangThe) === 0, "HĐ lưu giamCombo = 40.000");
 
   console.log(loi ? `\n✘ ${loi} kiểm tra thất bại` : "\n✔ Tất cả kiểm tra đạt");
   process.exitCode = loi ? 1 : 0;

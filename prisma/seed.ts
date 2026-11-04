@@ -187,7 +187,7 @@ async function main() {
     await prisma.hoaDon.create({
       data: {
         maTK: don.nv, thoiGianTao: ngayTruoc(don.ngay, 9 + don.ngay), trangThai: "DA_THANH_TOAN",
-        tamTinh: tien.tamTinh, thueVAT: tien.thueVAT, tienGiam: tien.tienGiam, tongTien: tien.tongTien, phuongThucTT: don.tt,
+        tamTinh: tien.tamTinh, thueVAT: tien.thueVAT, tongTien: tien.tongTien, phuongThucTT: don.tt,
         tienKhachDua: don.tt === "TIEN_MAT" ? Math.ceil(tien.tongTien / 50000) * 50000 : tien.tongTien,
         chiTiets: { create: chiTiets },
       },

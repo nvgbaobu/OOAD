@@ -177,23 +177,29 @@ model ChiTietCombo {
 // ───────────────────────── Bán hàng ─────────────────────────
 
 /// 10. Hóa đơn. trangThai: DANG_LAP | DA_THANH_TOAN | DA_HUY; phuongThucTT: TIEN_MAT | QUET_THE | MA_QR
-/// thueVAT, tienGiam là SỐ TIỀN (không phải tỷ lệ). diemCong = điểm đã cộng cho khách (để trừ lại khi hủy). Cách tính: lib/services/tinhTienHoaDon.ts
+/// Các khoản giam*, thueVAT là SỐ TIỀN. Thứ tự: tamTinh → giamCombo → giamHangThe → giamMaGiamGia → giamDiem → + thueVAT = tongTien
+/// (cách tính: lib/services/tinhTienHoaDon.ts). diemCong = điểm đã cộng cho khách (để trừ lại khi hủy).
+/// thoiGianCapNhat = lần sửa đơn gần nhất – đơn DANG_LAP quá 30 phút không sửa bị tự hủy.
 model HoaDon {
-  maHD         Int      @id @default(autoincrement())
-  maTK         Int
-  maKH         Int?
-  maMGG        Int?
-  thoiGianTao  DateTime @default(now()) @db.DateTime2
-  trangThai    String   @default("DANG_LAP") @db.NVarChar(20)
-  tamTinh      Decimal  @default(0) @db.Decimal(12, 2)
-  thueVAT      Decimal  @default(0) @db.Decimal(12, 2)
-  tienGiam     Decimal  @default(0) @db.Decimal(12, 2)
-  diemSuDung   Int      @default(0)
-  diemCong     Int      @default(0)
-  tongTien     Decimal  @default(0) @db.Decimal(12, 2)
-  phuongThucTT String?  @db.NVarChar(10)
-  tienKhachDua Decimal? @db.Decimal(12, 2)
-  lyDoHuy      String?  @db.NVarChar(500)
+  maHD            Int      @id @default(autoincrement())
+  maTK            Int
+  maKH            Int?
+  maMGG           Int?
+  thoiGianTao     DateTime @default(now()) @db.DateTime2
+  thoiGianCapNhat DateTime @default(now()) @db.DateTime2
+  trangThai       String   @default("DANG_LAP") @db.NVarChar(20)
+  tamTinh         Decimal  @default(0) @db.Decimal(12, 2)
+  thueVAT         Decimal  @default(0) @db.Decimal(12, 2)
+  giamCombo       Decimal  @default(0) @db.Decimal(12, 2)
+  giamHangThe     Decimal  @default(0) @db.Decimal(12, 2)
+  giamMaGiamGia   Decimal  @default(0) @db.Decimal(12, 2)
+  giamDiem        Decimal  @default(0) @db.Decimal(12, 2)
+  diemSuDung      Int      @default(0)
+  diemCong        Int      @default(0)
+  tongTien        Decimal  @default(0) @db.Decimal(12, 2)
+  phuongThucTT    String?  @db.NVarChar(10)
+  tienKhachDua    Decimal? @db.Decimal(12, 2)
+  lyDoHuy         String?  @db.NVarChar(500)
 
   taiKhoan  TaiKhoan        @relation(fields: [maTK], references: [maTK], onDelete: NoAction, onUpdate: NoAction)
   khachHang KhachHang?      @relation(fields: [maKH], references: [maKH], onDelete: NoAction, onUpdate: NoAction)
@@ -203,6 +209,7 @@ model HoaDon {
   @@index([maTK])
   @@index([maKH])
   @@index([thoiGianTao])
+  @@index([trangThai, thoiGianCapNhat])
   @@map("HoaDon")
 }
 
