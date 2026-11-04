@@ -205,8 +205,8 @@ async function main() {
   await prisma.phieuNhap.create({
     data: {
       maNCC: ncc[0].maNCC, maTKLap: staff2.maTK, ngayLap: ngayTruoc(0, 8), trangThai: "CHO_DUYET",
-      tongTien: 10 * 40000 + 15 * 160000, ghiChu: "Nhập sách sắp hết",
-      chiTiets: { create: [{ maSach: sach[17].maSach, soLuong: 10, giaNhap: 40000 }, { maSach: sach[29].maSach, soLuong: 15, giaNhap: 160000 }] },
+      tongTien: 10 * 40000 + 15 * 40000, ghiChu: "Nhập sách sắp hết",
+      chiTiets: { create: [{ maSach: sach[17].maSach, soLuong: 10, giaNhap: 40000 }, { maSach: sach[8].maSach, soLuong: 15, giaNhap: 40000 }] },
     },
   });
 

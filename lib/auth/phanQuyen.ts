@@ -5,6 +5,7 @@ import type { VaiTro } from "./token";
 export const CHI_ADMIN: RegExp[] = [
   /^\/dashboard(\/|$)/,
   /^\/sach\/.+/, // /sach (danh sách) Staff xem được; thêm/sửa sách, thể loại: chỉ Admin
+  /^\/nha-cung-cap(\/|$)/, // Staff chỉ chọn NCC khi lập phiếu nhập, không quản lý NCC
 ];
 
 export const trangChuTheoVaiTro = (vaiTro: VaiTro) => (vaiTro === "ADMIN" ? "/dashboard" : "/pos");
