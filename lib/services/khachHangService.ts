@@ -1,10 +1,11 @@
 // Nghiệp vụ khách hàng thành viên – dùng chung cho POS (tạo nhanh) và màn hình Khách hàng.
 import { prisma } from "@/lib/prisma";
+import { LoiNghiepVu } from "@/lib/loi";
 import type { Db } from "@/lib/db";
 import { khachHangRepository } from "@/lib/repositories/khachHangRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 
-export class LoiKhachHang extends Error {}
+export class LoiKhachHang extends LoiNghiepVu {}
 
 export type DuLieuKhachHang = { soDienThoai: string; hoTen: string; email?: string | null; diaChi?: string | null };
 
