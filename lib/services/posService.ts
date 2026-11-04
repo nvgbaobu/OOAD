@@ -169,14 +169,6 @@ async function layDonBatBuoc(db: Db, maTK: number) {
 export const posService = {
   timSach: (tuKhoa: string) => sachRepository.timDeBan(tuKhoa),
 
-  /** Hóa đơn để xem/in. Staff chỉ xem được hóa đơn của mình. */
-  async xemHoaDon(maHD: number, nguoiXem: { maTK: number; vaiTro: string }) {
-    const hd = await hoaDonRepository.layHoaDonDayDu(maHD);
-    if (!hd || hd.trangThai === "DANG_LAP") return null;
-    if (nguoiXem.vaiTro !== "ADMIN" && hd.maTK !== nguoiXem.maTK) return null;
-    return hd;
-  },
-
   /** Dữ liệu màn hình POS: đơn đang lập + tiền + cấu hình thanh toán. */
   async layGioHang(maTK: number) {
     await huyDonQuaHan();
