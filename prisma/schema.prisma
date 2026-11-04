@@ -177,7 +177,7 @@ model ChiTietCombo {
 // ───────────────────────── Bán hàng ─────────────────────────
 
 /// 10. Hóa đơn. trangThai: DANG_LAP | DA_THANH_TOAN | DA_HUY; phuongThucTT: TIEN_MAT | QUET_THE | MA_QR
-/// thueVAT, tienGiam là SỐ TIỀN (không phải tỷ lệ). Cách tính: lib/services/tinhTienHoaDon.ts
+/// thueVAT, tienGiam là SỐ TIỀN (không phải tỷ lệ). diemCong = điểm đã cộng cho khách (để trừ lại khi hủy). Cách tính: lib/services/tinhTienHoaDon.ts
 model HoaDon {
   maHD         Int      @id @default(autoincrement())
   maTK         Int
@@ -189,6 +189,7 @@ model HoaDon {
   thueVAT      Decimal  @default(0) @db.Decimal(12, 2)
   tienGiam     Decimal  @default(0) @db.Decimal(12, 2)
   diemSuDung   Int      @default(0)
+  diemCong     Int      @default(0)
   tongTien     Decimal  @default(0) @db.Decimal(12, 2)
   phuongThucTT String?  @db.NVarChar(10)
   tienKhachDua Decimal? @db.Decimal(12, 2)

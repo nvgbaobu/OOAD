@@ -8,7 +8,7 @@ export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex items-center gap-4 border-b bg-white px-4 py-2">
+      <header className="flex items-center print:hidden gap-4 border-b bg-white px-4 py-2">
         <span className="font-bold">Nhà sách</span>
         <nav className="flex gap-3 text-sm">
           {nd.vaiTro === "ADMIN" && <Link href="/dashboard" className="hover:underline">Dashboard</Link>}
@@ -23,7 +23,7 @@ export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
           </form>
         </div>
       </header>
-      <main className="flex-1 bg-gray-50 p-4">{children}</main>
+      <main className="flex-1 bg-gray-50 p-4 print:bg-white print:p-0">{children}</main>
     </div>
   );
 }
