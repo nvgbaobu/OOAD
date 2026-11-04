@@ -1,0 +1,6 @@
+# Thống nhất xuống dòng LF cho mọi file văn bản (nhóm dùng cả Ubuntu và Windows)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.xlsx binary
+*.bak binary
