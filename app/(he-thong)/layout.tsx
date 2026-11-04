@@ -15,6 +15,7 @@ export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
         <nav className="flex gap-3 text-sm">
           {nd.vaiTro === "ADMIN" && <Link href="/dashboard" className="hover:underline">Dashboard</Link>}
           <Link href="/pos" className="hover:underline">Bán hàng</Link>
+          <Link href="/hoa-don" className="hover:underline">Hóa đơn</Link>
           <Link href="/sach" className="hover:underline">Sách</Link>
           <Link href="/kho" className="hover:underline">Kho</Link>
           {nd.vaiTro === "ADMIN" && <Link href="/nha-cung-cap" className="hover:underline">Nhà cung cấp</Link>}

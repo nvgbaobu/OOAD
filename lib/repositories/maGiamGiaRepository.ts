@@ -9,4 +9,10 @@ export const maGiamGiaRepository = {
       UPDATE MaGiamGia SET daSuDung = daSuDung + 1 WHERE maMGG = ${maMGG} AND daSuDung < soLuongToiDa`;
     return n === 1;
   },
+
+  /** Hoàn 1 lượt dùng (hủy hóa đơn đã dùng mã). */
+  async giamLuotDung(db: Db, maMGG: number) {
+    const n = await db.$executeRaw`UPDATE MaGiamGia SET daSuDung = daSuDung - 1 WHERE maMGG = ${maMGG} AND daSuDung > 0`;
+    return n === 1;
+  },
 };
