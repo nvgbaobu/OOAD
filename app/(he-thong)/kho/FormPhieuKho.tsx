@@ -164,7 +164,7 @@ export default function FormPhieuKho({
                     <>
                       {oSoLuong}
                       <td>
-                        <input name="giaNhap" type="number" min={0} step={500} value={d.giaNhap} aria-invalid={!!l} aria-label="Giá nhập"
+                        <input name="giaNhap" type="number" min={0} step={1} value={d.giaNhap} aria-invalid={!!l} aria-label="Giá nhập"
                           onChange={(e) => sua(i, { giaNhap: e.target.value })} className={`${oNhap} w-32`} />
                       </td>
                       <td className="text-right">{tien((Number(d.soLuong) || 0) * (Number(d.giaNhap) || 0))}</td>

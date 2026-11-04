@@ -144,6 +144,12 @@ npm run dev
   - `/dashboard`: hôm nay (so với hôm qua), tháng này, biểu đồ cột 7 ngày, việc cần xử lý (phiếu chờ duyệt, sách sắp hết, đơn đang lập), top 5 sách 30 ngày, hóa đơn gần đây. `/bao-cao`: chọn khoảng ngày (mặc định tháng này, tối đa 366 ngày, có nút nhanh), cơ cấu doanh thu (tạm tính − combo − hạng − mã − điểm + VAT), theo ngày/thể loại/top 10 sách/nhân viên/phương thức.
   - Xuất Excel: route handler `GET /bao-cao/excel?tuNgay&denNgay` → 7 sheet (Tổng hợp, Theo ngày, Theo thể loại, Sách bán chạy, Theo nhân viên, Theo phương thức, Hóa đơn – gồm cả HĐ đã hủy để đối chiếu). exceljs ghi Date theo UTC → **bù múi giờ** (`gioDiaPhuong`) trước khi ghi. Nhật ký `BAO_CAO/XUAT_EXCEL`.
   - Biểu đồ: `app/components/BieuDoCot.tsx` (server component HTML/CSS, 1 chuỗi 1 màu, tooltip khi rê chuột – theo skill dataviz). Không dùng thư viện biểu đồ.
+- 04/11/2026 – **Cài đặt** (`/cai-dat`, chỉ Admin, 4 tab; nghiệp vụ ở `caiDatService.ts`, `taiKhoanService.ts`):
+  - **Cửa hàng & thanh toán**: tên/địa chỉ/SĐT/MST/logo (URL, in trên hóa đơn); tích điểm `tyLeQuyDoiDiem` 1.000–1.000.000đ, **`giaTriMotDiem` < `tyLeQuyDoiDiem`**; phải bật ≥ 1 phương thức thanh toán (POS ẩn + chặn phương thức tắt). Áp dụng ngay cho đơn chưa thanh toán. Nhật ký `CAI_DAT/SUA` ghi giá trị cũ → mới.
+  - **Tài khoản**: SĐT = tên đăng nhập, **không đổi sau khi tạo**; mật khẩu 6–72 ký tự; luôn còn ≥ 1 Admin hoạt động; Admin không tự khóa/tự hạ quyền. **Khóa tài khoản → hủy đơn đang lập của người đó** (`LY_DO_HUY.KHOA_TAI_KHOAN`, trả tạm giữ) và mất quyền ở request kế tiếp (DAL đọc DB). Admin đặt lại mật khẩu cho người khác; mỗi người tự đổi mật khẩu ở **`/ca-nhan`** (bấm tên trên header; cần mật khẩu hiện tại). Đổi mật khẩu không đuổi phiên đang mở (JWT không lưu DB) – muốn đuổi ngay thì khóa. Nhật ký `TAI_KHOAN`: THEM, SUA, KHOA, MO_KHOA, DAT_LAI_MAT_KHAU, DOI_MAT_KHAU.
+  - **Nhật ký hệ thống**: lọc module / người / ngày / từ khóa, 50 dòng/trang.
+  - **Sao lưu**: `BACKUP DATABASE … COPY_ONLY` ra `/var/opt/mssql/data/QuanLyBanSach_YYYYMMDD_HHmmss.bak` (trong volume `mssql_data`), ghi `BanSaoLuu` (kích thước lấy từ `msdb.dbo.backupset`). **Phục hồi làm thủ công** (đã thử chạy được): `docker exec -it qlbs-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q "ALTER DATABASE QuanLyBanSach SET SINGLE_USER WITH ROLLBACK IMMEDIATE; RESTORE DATABASE QuanLyBanSach FROM DISK = N'<file .bak>' WITH REPLACE; ALTER DATABASE QuanLyBanSach SET MULTI_USER;"`.
+  - Ô số tiền/% dùng `step` 1 / 0.01 (step lớn khiến trình duyệt chặn giá như 99.900đ); kiểm tra thật ở server.
 - 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: **`/hoa-don/[maHD]`** (POS thanh toán xong chuyển tới đây), in bằng `window.print()` (header ẩn khi in).
 - 04/11/2026 – **Hóa đơn** (`/hoa-don`, nghiệp vụ ở `hoaDonService.ts`): tra cứu theo số HĐ (`123`/`#123`), SĐT/tên khách, khoảng ngày (theo `thoiGianTao` = lúc thanh toán, giờ máy chủ), trạng thái (Đã thanh toán / Đã hủy sau thanh toán / Đơn nháp đã hủy), phương thức, nhân viên (Admin); 20 HĐ/trang; không liệt kê đơn DANG_LAP. Dòng tổng hợp: doanh thu chỉ tính DA_THANH_TOAN.
   - **Hủy hóa đơn đã thanh toán** (chỉ Admin, lý do bắt buộc ≤ 255 ký tự, 1 transaction, chuyển trạng thái có điều kiện): hoàn kho từng dòng; khách: `diemHienTai += diemSuDung − diemCong` (**khách đã tiêu bớt điểm thì về 0**, nhật ký ghi số điểm hụt), `diemTichLuy −= diemCong`, **xét lại hạng theo điểm tích lũy (có thể hạ hạng)**; hoàn 1 lượt mã giảm giá; số tiền trên hóa đơn giữ nguyên; `lyDoHuy`, `thoiGianCapNhat` = lúc hủy. Nhật ký `HOA_DON/HUY`. Không hủy được đơn chưa thanh toán (đơn nháp hủy ở POS).
@@ -164,7 +170,7 @@ npm run dev
 ## Tiến độ
 - [x] Khởi tạo Next.js + Prisma, `schema.prisma` 21 bảng, migrate lên SQL Server Docker, seed dữ liệu mẫu (04/11/2026).
 - [x] Đăng nhập / đăng xuất, phân quyền Admin → Dashboard, Staff → POS, chặn tài khoản khóa, ghi nhật ký (04/11/2026, branch `feature/dang-nhap`).
-- [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin).
+- [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin). Tạm thời: Admin đặt lại mật khẩu ở Cài đặt → Tài khoản.
 - [x] POS bán hàng: tìm sách, giỏ hàng (tạm giữ kho), chọn / tạo nhanh khách thành viên, combo, mã giảm giá, đổi điểm, VAT, tự hủy đơn nháp quá 30 phút / khi đăng xuất, thanh toán 3 phương thức + tiền thừa, xem/in hóa đơn, hủy đơn nháp (04/11/2026, branch `feature/pos`). Kiểm thử nghiệp vụ: `npm run test:pos` (**ghi vào DB thật, chạy xong tự seed lại**).
 - [x] Quản lý sách + thể loại & VAT (04/11/2026, branch `feature/quan-ly-sach`). Kiểm thử: `npm run test:sach`; chạy cả bộ: `npm test` (**ghi DB thật, xong tự seed lại**).
 - [x] Tồn kho + phiếu kiểm kê / xuất hủy, lập → duyệt / từ chối (04/11/2026, branch `feature/ton-kho`). Kiểm thử: `npm run test:kho`.
@@ -173,7 +179,7 @@ npm run dev
 - [x] Khách hàng + hạng thành viên & tích điểm (04/11/2026, branch `feature/khach-hang`). Kiểm thử: `npm run test:khach-hang`.
 - [x] Khuyến mãi: mã giảm giá + combo (04/11/2026, branch `feature/ma-giam-gia`). Kiểm thử: `npm run test:khuyen-mai`.
 - [x] Dashboard + báo cáo doanh thu + xuất Excel (04/11/2026, branch `feature/dashboard`). Kiểm thử: `npm run test:bao-cao`.
-- [ ] Module 10: Cài đặt + quản lý tài khoản, mỗi module 1 branch `feature/<module>`.
+- [x] Cài đặt: cấu hình cửa hàng/tích điểm/thanh toán, tài khoản, đổi mật khẩu, nhật ký, sao lưu (04/11/2026, branch `feature/cai-dat`). Kiểm thử: `npm run test:cai-dat`. **Đủ 10 module demo** – `npm test` chạy 9 bộ kiểm thử., mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
 - Thống nhất trạng thái phiếu "Đã duyệt" (UC7.3 đang ghi "Hoàn tất").

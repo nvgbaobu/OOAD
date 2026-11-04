@@ -1,7 +1,7 @@
 import { LoiNghiepVu } from "@/lib/loi";
 
-/** Kết quả trả về cho form (useActionState). duLieu = giá trị vừa gửi, để điền lại form khi lỗi. */
-export type KetQuaForm = { loi?: string; loiTruong?: Record<string, string>; duLieu?: Record<string, string> } | undefined;
+/** Kết quả trả về cho form (useActionState). duLieu = giá trị vừa gửi, để điền lại form khi lỗi; thongBao = báo thành công (không chuyển trang). */
+export type KetQuaForm = { loi?: string; loiTruong?: Record<string, string>; duLieu?: Record<string, string>; thongBao?: string } | undefined;
 
 /** Lấy toàn bộ ô dạng chuỗi từ FormData (bỏ các trường nội bộ $ACTION_ của Next). */
 export function docForm(fd: FormData): Record<string, string> {

@@ -39,6 +39,8 @@ export default async function TrangHoaDon({ params }: PageProps<"/hoa-don/[maHD]
 
       <article className="rounded-lg border bg-white p-5 text-sm print:border-0">
         <header className="mb-3 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo là URL tùy ý do Admin nhập, không qua next/image */}
+          {ch.logo && <img src={ch.logo} alt="" className="mx-auto mb-1 max-h-16" />}
           <h1 className="text-lg font-bold">{ch.tenCuaHang}</h1>
           {ch.diaChi && <p>{ch.diaChi}</p>}
           <p>{ch.soDienThoai && `ĐT: ${ch.soDienThoai}`}{ch.maSoThue && ` · MST: ${ch.maSoThue}`}</p>
