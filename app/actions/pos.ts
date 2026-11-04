@@ -3,9 +3,10 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
-import { posService, LoiPOS, type PhuongThucTT } from "@/lib/services/posService";
+import { posService, LoiPOS, KhongTimThayKhachHang, type PhuongThucTT } from "@/lib/services/posService";
 
 export type KetQuaHanhDong = { loi?: string } | undefined;
+export type KetQuaChonKhach = { loi?: string; chuaDangKy?: string } | undefined;
 
 /** Chạy nghiệp vụ POS cho người đang đăng nhập; lỗi nghiệp vụ → trả { loi } để form hiển thị. */
 async function chay(fn: (maTK: number) => Promise<unknown>): Promise<KetQuaHanhDong> {
@@ -31,10 +32,23 @@ export async function capNhatSoLuong(_: KetQuaHanhDong, fd: FormData) {
   return chay((maTK) => posService.capNhatSoLuong(maTK, soNguyen(fd.get("maSach")), soNguyen(fd.get("soLuong"))));
 }
 
-export async function chonKhachHang(_: KetQuaHanhDong, fd: FormData) {
+export async function chonKhachHang(_: KetQuaChonKhach, fd: FormData): Promise<KetQuaChonKhach> {
   const sdt = chuoi(fd.get("soDienThoai"));
-  if (!/^0\d{9}$/.test(sdt)) return { loi: "Số điện thoại gồm 10 chữ số, bắt đầu bằng 0" };
-  return chay((maTK) => posService.chonKhachHang(maTK, sdt));
+  const nd = await yeuCauDangNhap("ADMIN", "STAFF");
+  try {
+    await posService.chonKhachHang(nd.maTK, sdt);
+  } catch (e) {
+    // SĐT chưa đăng ký → giao diện hiện form tạo nhanh
+    if (e instanceof KhongTimThayKhachHang) return { loi: e.message, chuaDangKy: e.soDienThoai };
+    if (e instanceof LoiPOS) return { loi: e.message };
+    throw e;
+  }
+  refresh();
+  return undefined;
+}
+
+export async function taoNhanhKhachHang(_: KetQuaHanhDong, fd: FormData) {
+  return chay((maTK) => posService.taoNhanhKhachHang(maTK, chuoi(fd.get("soDienThoai")), chuoi(fd.get("hoTen"))));
 }
 
 export async function boKhachHang() {
