@@ -51,6 +51,7 @@ export const LY_DO_HUY = {
   NHAN_VIEN: "Nhân viên hủy đơn đang lập",
   DANG_XUAT: "Hủy khi nhân viên đăng xuất",
   QUA_HAN: "Tự động hủy do quá thời gian",
+  KHOA_TAI_KHOAN: "Hủy do tài khoản nhân viên bị khóa",
 } as const;
 
 /**
@@ -339,8 +340,14 @@ export const posService = {
 
   /** Đăng xuất: hủy đơn nháp (nếu có) để giải phóng tạm giữ. */
   async huyDonKhiDangXuat(maTK: number) {
+    await this.huyDonDangLapCua(maTK, LY_DO_HUY.DANG_XUAT);
+  },
+
+  /** Hủy đơn đang lập (nếu có) của một nhân viên – dùng khi đăng xuất / khi Admin khóa tài khoản. */
+  async huyDonDangLapCua(maTK: number, lyDo: (typeof LY_DO_HUY)[keyof typeof LY_DO_HUY]) {
     const don = await hoaDonRepository.layDonDangLap(prisma, maTK);
-    if (don) await prisma.$transaction((tx) => huyDonNhap(tx, don, LY_DO_HUY.DANG_XUAT));
+    if (don) await prisma.$transaction((tx) => huyDonNhap(tx, don, lyDo));
+    return !!don;
   },
 
   /** Thanh toán đơn đang lập. Trả về maHD để in hóa đơn. */

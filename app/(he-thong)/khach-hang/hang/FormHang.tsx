@@ -20,7 +20,7 @@ export default function FormHang({ banDau, maHang }: { banDau: Record<string, st
           điểm tích lũy
         </label>
         <label className="flex items-center gap-1 text-sm">ưu đãi
-          <input name="phanTramUuDai" type="number" min={0} max={50} step={0.5} defaultValue={gt.phanTramUuDai} aria-label="Phần trăm ưu đãi" aria-invalid={!!loi.phanTramUuDai} className={`${oNhap} w-20`} />%
+          <input name="phanTramUuDai" type="number" min={0} max={50} step={0.01} defaultValue={gt.phanTramUuDai} aria-label="Phần trăm ưu đãi" aria-invalid={!!loi.phanTramUuDai} className={`${oNhap} w-20`} />%
         </label>
         <button className={`rounded px-3 py-1 text-sm ${maHang ? "border hover:bg-gray-50" : "bg-blue-600 text-white hover:bg-blue-700"}`}>
           {pending ? "..." : maHang ? "Lưu" : "Thêm"}

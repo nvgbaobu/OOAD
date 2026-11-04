@@ -9,6 +9,7 @@ export const CHI_ADMIN: RegExp[] = [
   /^\/khach-hang\/hang(\/|$)/, // cấu hình hạng thành viên; tra cứu/thêm/sửa khách thì Staff được
   /^\/khuyen-mai\/.+/, // /khuyen-mai (danh sách) Staff xem được; thêm/sửa mã, combo: chỉ Admin
   /^\/nha-cung-cap(\/|$)/, // Staff chỉ chọn NCC khi lập phiếu nhập, không quản lý NCC
+  /^\/cai-dat(\/|$)/, // cấu hình, tài khoản, nhật ký, sao lưu (đổi mật khẩu cá nhân ở /ca-nhan – mọi người dùng)
 ];
 
 export const trangChuTheoVaiTro = (vaiTro: VaiTro) => (vaiTro === "ADMIN" ? "/dashboard" : "/pos");
