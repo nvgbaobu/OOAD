@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:pos": "tsx scripts/kiem-thu-pos.ts && prisma db seed"
+    "test:pos": "tsx scripts/kiem-thu-pos.ts && prisma db seed",
+    "test:sach": "tsx scripts/kiem-thu-sach.ts && prisma db seed",
+    "test": "npm run test:pos && npm run test:sach"
   },
   "dependencies": {
     "@prisma/adapter-mssql": "^7.10.1",

@@ -81,13 +81,16 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 - Cấu trúc: `lib/repositories/<ten>Repository.ts` (chỉ gọi Prisma) → `lib/services/<ten>Service.ts` (nghiệp vụ, ghi nhật ký) → `app/actions/<module>.ts` (`"use server"`, đọc FormData, kiểm tra dữ liệu, gọi service) → `app/(he-thong)/<duong-dan>/page.tsx` (giao diện). Form dùng client component + `useActionState`.
 - Đường dẫn tiếng Việt không dấu: `/dang-nhap`, `/dashboard`, `/pos`... Trang sau đăng nhập đặt trong route group `app/(he-thong)/` (có header + nút Đăng xuất).
 - **Phân quyền 2 lớp**:
-  1. `proxy.ts` (chỉ đọc cookie): chưa đăng nhập → `/dang-nhap`; `/` → trang chủ theo vai trò; Staff vào trang chỉ-Admin → `/pos`. Trang chỉ-Admin khai báo trong `CHI_ADMIN` ở `lib/auth/phanQuyen.ts` — **thêm module Admin mới thì thêm đường dẫn vào đây**.
+  1. `proxy.ts` (chỉ đọc cookie): chưa đăng nhập → `/dang-nhap`; `/` → trang chủ theo vai trò; Staff vào trang chỉ-Admin → `/pos`. Trang chỉ-Admin khai báo bằng **RegExp** trong `CHI_ADMIN` ở `lib/auth/phanQuyen.ts` (vd `/^\/sach\/.+/` = mọi trang con của /sach, còn /sach thì Staff xem được) — **thêm module Admin mới thì thêm mẫu vào đây**.
   2. `lib/auth/dal.ts`: **mọi page và server action** phải gọi `yeuCauDangNhap()` / `yeuCauDangNhap("ADMIN")` (kiểm lại DB, tài khoản bị khóa mất quyền ngay). Không tin proxy là đủ.
 - Không chuyển hướng theo vai trò bằng `redirect()` trong lúc render page khi có thể làm ở proxy: redirect giữa lúc render khiến Next chuyển trang phía client, click của người dùng trong lúc đó bị mất (đã gặp với nút Đăng xuất).
 - Ghi nhật ký qua `nhatKyRepository.ghi({ maTK, module, hanhDong, noiDung })`. Mã module/hành động viết HOA_KHONG_DAU, vd module `TAI_KHOAN`: `DANG_NHAP`, `DANG_NHAP_THAT_BAI`, `DANG_NHAP_BI_KHOA`, `DANG_XUAT`.
 - Transaction: repository nhận tham số `db: Db` (`lib/db.ts`) để dùng được cả `prisma` lẫn `tx` trong `prisma.$transaction(async (tx) => ...)`.
 - Thay đổi số lượng kho/lượt dùng bằng **UPDATE có điều kiện** (`$executeRaw` … `WHERE soLuongTon - soLuongTamGiu >= n`) rồi kiểm tra số dòng bị ảnh hưởng, không đọc-rồi-ghi → hai quầy bán cùng lúc không bán vượt tồn.
-- Lỗi nghiệp vụ: service ném lớp lỗi riêng (vd `LoiPOS`) → server action bắt, trả `{ loi }` → `app/components/FormHanhDong.tsx` hiển thị. Lỗi khác cứ để ném ra.
+- Lỗi nghiệp vụ: service ném **`LoiNghiepVu(message, loiTruong?)`** (`lib/loi.ts`; `LoiPOS`, `LoiKhachHang` kế thừa nó). `loiTruong` = lỗi theo từng ô (key = `name` của input). Server action dùng `batLoiNghiepVu(fn, duLieu)` + `docForm(fd)` ở `lib/ketQuaForm.ts` → trả `{ loi, loiTruong, duLieu }`. Form nhỏ dùng `app/components/FormHanhDong.tsx`; form nhiều ô làm theo mẫu `app/(he-thong)/sach/FormSach.tsx` (lỗi dưới từng ô, giữ lại giá trị đã nhập nhờ `duLieu`). Lỗi khác cứ để ném ra.
+- Service nhận dữ liệu thô từ form (chuỗi), tự chuẩn hóa (trim, gộp khoảng trắng) + kiểm tra, gom mọi lỗi theo ô rồi ném 1 lần.
+- Trong component client, **không định nghĩa component bên trong component** (lint `react-hooks` báo lỗi) – dùng hàm trả JSX như `o(ten, nhan, props)` trong FormSach.
+- Thêm route mới mà `PageProps<"/duong-dan">` báo lỗi kiểu → chạy `npx next typegen`.
 - Server action đổi dữ liệu xong gọi `refresh()` (từ `next/cache`) để trang tự cập nhật.
 - Form tìm kiếm (GET) dùng `<Form>` của `next/form` (chuyển trang phía client). Form GET thường tải lại cả trang → click trong ~0,5 giây đầu khi trang đang hydrate bị mất (đã gặp ở POS).
 - Định dạng tiền/ngày: `lib/dinhDang.ts` (`tienVND`, `ngayGio`).
@@ -122,6 +125,8 @@ npm run dev
 - 04/11/2026 – Mã giảm giá kiểm tra (trạng thái, ngày, lượt) lúc áp **và** lúc thanh toán; lượt dùng tăng khi thanh toán. Đổi mã → số điểm đã nhập bị đặt lại 0. Bỏ khách hàng → bỏ điểm. Mã nhập không phân biệt hoa/thường.
 - 04/11/2026 – Thăng hạng: sau thanh toán, hạng = hạng có `diemToiThieu` cao nhất ≤ `diemTichLuy` (chỉ nâng, không hạ).
 - 04/11/2026 – **Tạo nhanh khách hàng tại POS** (UC3.1 luồng 7a): SĐT chưa đăng ký → form nhỏ (SĐT có sẵn + họ tên) → tạo khách hạng thấp nhất, 0 điểm, gắn vào đơn. Nghiệp vụ tạo khách nằm ở `lib/services/khachHangService.ts` (`taoMoi`, kiểm tra SĐT/họ tên/email, ghi nhật ký `KHACH_HANG/THEM`) – **màn hình Khách hàng phải dùng lại service này**.
+- 04/11/2026 – **Quản lý sách**: Staff chỉ **xem** danh sách `/sach` (tra cứu); thêm/sửa sách, ngừng kinh doanh/mở bán lại, quản lý thể loại chỉ Admin. **Không sửa tồn kho ở màn hình sách** (sách mới tồn = 0; kho chỉ đổi qua phiếu nhập/kiểm kê/xuất hủy có duyệt). **Không xóa sách** – chỉ ngừng kinh doanh. ISBN 10 hoặc 13 số (bỏ dấu gạch), duy nhất; năm XB 1900..năm sau; định mức mặc định 5; ảnh bìa là đường dẫn (chưa có upload file). "Sắp hết hàng" = `soLuongTon ≤ dinhMucToiThieu`. Danh sách 15 sách/trang.
+- 04/11/2026 – **Thể loại**: thuế suất chỉ chọn 0% hoặc 5%; tên duy nhất (không phân biệt hoa/thường theo collation SQL Server); chỉ xóa được thể loại chưa có sách. Đổi giá sách / thuế suất thể loại chỉ áp dụng cho đơn mới. Nhật ký module `SACH` (THEM, SUA – ghi giá cũ→mới, NGUNG_KINH_DOANH, MO_BAN_LAI) và `THE_LOAI` (THEM, SUA, XOA).
 - 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: `/pos/hoa-don/[maHD]`, in bằng `window.print()` (header ẩn khi in).
 - 04/11/2026 – Hash mật khẩu dùng **`bcryptjs`** (thuần JS, cùng định dạng hash bcrypt, không cần build native).
 - 04/11/2026 – Tên model Prisma = tên bảng (PascalCase tiếng Việt, `@@map` giữ đúng tên bảng); client dùng camelCase: `prisma.taiKhoan`, `prisma.hoaDon`...
@@ -141,7 +146,8 @@ npm run dev
 - [x] Đăng nhập / đăng xuất, phân quyền Admin → Dashboard, Staff → POS, chặn tài khoản khóa, ghi nhật ký (04/11/2026, branch `feature/dang-nhap`). Dashboard và POS hiện là trang giữ chỗ.
 - [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin).
 - [x] POS bán hàng: tìm sách, giỏ hàng (tạm giữ kho), chọn / tạo nhanh khách thành viên, combo, mã giảm giá, đổi điểm, VAT, tự hủy đơn nháp quá 30 phút / khi đăng xuất, thanh toán 3 phương thức + tiền thừa, xem/in hóa đơn, hủy đơn nháp (04/11/2026, branch `feature/pos`). Kiểm thử nghiệp vụ: `npm run test:pos` (**ghi vào DB thật, chạy xong tự seed lại**).
-- [ ] Các module còn lại (3–10), mỗi module 1 branch `feature/<module>`.
+- [x] Quản lý sách + thể loại & VAT (04/11/2026, branch `feature/quan-ly-sach`). Kiểm thử: `npm run test:sach`; chạy cả bộ: `npm test` (**ghi DB thật, xong tự seed lại**).
+- [ ] Các module còn lại (4–10), mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
 - Thống nhất trạng thái phiếu "Đã duyệt" (UC7.3 đang ghi "Hoàn tất").

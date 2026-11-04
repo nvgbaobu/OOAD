@@ -1,7 +1,35 @@
 import { prisma } from "@/lib/prisma";
 import type { Db } from "@/lib/db";
+import type { Prisma } from "@/lib/generated/prisma/client";
+
+export type LocSach = { tuKhoa?: string; maTL?: number; trangThai?: string; sapHet?: boolean };
+
+function dieuKienLoc(loc: LocSach): Prisma.SachWhereInput {
+  return {
+    ...(loc.tuKhoa && {
+      OR: [{ tenSach: { contains: loc.tuKhoa } }, { isbn: { contains: loc.tuKhoa } }, { tacGia: { contains: loc.tuKhoa } }],
+    }),
+    ...(loc.maTL && { maTL: loc.maTL }),
+    ...(loc.trangThai && { trangThai: loc.trangThai }),
+    // Sắp hết: tồn kho ≤ định mức tối thiểu (so sánh 2 cột bằng field reference)
+    ...(loc.sapHet && { soLuongTon: { lte: prisma.sach.fields.dinhMucToiThieu } }),
+  };
+}
 
 export const sachRepository = {
+  danhSach: (loc: LocSach, boQua: number, lay: number) =>
+    prisma.sach.findMany({
+      where: dieuKienLoc(loc),
+      include: { theLoai: true },
+      orderBy: [{ trangThai: "asc" }, { tenSach: "asc" }],
+      skip: boQua,
+      take: lay,
+    }),
+  dem: (loc: LocSach) => prisma.sach.count({ where: dieuKienLoc(loc) }),
+  timTheoIsbn: (isbn: string) => prisma.sach.findUnique({ where: { isbn } }),
+  tao: (data: Prisma.SachUncheckedCreateInput) => prisma.sach.create({ data }),
+  capNhat: (maSach: number, data: Prisma.SachUncheckedUpdateInput) => prisma.sach.update({ where: { maSach }, data }),
+
   /** Sách đang bán, tìm theo tên / ISBN / tác giả (POS). */
   timDeBan: (tuKhoa: string, gioiHan = 20) =>
     prisma.sach.findMany({
