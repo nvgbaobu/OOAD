@@ -2,7 +2,7 @@
 
 import { useActionState, type ReactNode } from "react";
 
-type KetQua = { loi?: string } | undefined;
+type KetQua = { loi?: string; loiTruong?: Record<string, string> } | undefined;
 
 /** Form gọi server action, tự khóa khi đang xử lý và hiện lỗi nghiệp vụ trả về ({ loi }). */
 export default function FormHanhDong({
