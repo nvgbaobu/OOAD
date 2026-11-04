@@ -164,7 +164,10 @@ npm run dev
 - 04/11/2026 – Thứ tự giảm giá hạng → mã → điểm, VAT sau giảm (chi tiết ở mục Quy tắc nghiệp vụ).
 - 04/11/2026 – `HoaDon.thueVAT`, `tienGiam` lưu **số tiền** (tienGiam = giảm hạng + giảm mã + giảm điểm). `CauHinhHeThong.tyLeQuyDoiDiem` = số tiền chi tiêu để được 1 điểm (mặc định 10.000đ); `giaTriMotDiem` = giá trị 1 điểm khi đổi (mặc định 1.000đ).
 
-- 04/11/2026 – **CI GitHub Actions** (`.github/workflows/blank.yml`, repo `nvgbaobu/OOAD`): mỗi push lên `main` / pull request chạy `npm ci` → `prisma generate` → lint → `next typegen` + `tsc` → build. Code ở **gốc repo** (không có thư mục con). `DATABASE_URL` trong CI là giá trị giả (generate không kết nối DB). CI **chưa chạy `npm test`** (cần SQL Server – có thể thêm service container `mssql/server:2025-latest` sau).
+- 04/11/2026 – **CI GitHub Actions** (`.github/workflows/blank.yml`, repo `nvgbaobu/OOAD`), chạy mỗi push lên `main` / pull request, 2 job song song:
+  - `build`: `npm ci` → `prisma generate` → lint → `next typegen` + `tsc` → build. Code ở **gốc repo**. `DATABASE_URL` giả (generate không kết nối DB).
+  - `test`: service container **SQL Server 2025** (mật khẩu chỉ dùng trong CI) → `prisma migrate deploy` trên CSDL **mới tinh** → `npm test` (9 bộ). `TZ=Asia/Ho_Chi_Minh`.
+  - Nhờ chạy trên CSDL mới đã phát hiện & sửa 2 lỗi seed: (1) `DBCC CHECKIDENT … RESEED, 0` trên bảng chưa từng có dòng làm ID bắt đầu từ **0** (admin maTK = 0, mọi ID lệch; `Number(x) || null` coi 0 là rỗng) → chỉ reseed bảng đã sinh ID (`sys.identity_columns.last_value IS NOT NULL`); (2) hóa đơn/phiếu mẫu "hôm nay 8–9h" nằm ở tương lai nếu seed chạy sáng sớm → `daQua()` lùi về 5 phút trước. **Dữ liệu mẫu "đã xảy ra" phải luôn ở quá khứ.**
 
 ## Câu hỏi còn mở (cần nhóm chốt)
 - Điểm cộng đang tính trên `tongTien` (đã gồm VAT, sau mọi giảm giá). Nếu muốn tính trên tiền trước thuế thì sửa 1 dòng trong `tinhTienHoaDon.ts`.
