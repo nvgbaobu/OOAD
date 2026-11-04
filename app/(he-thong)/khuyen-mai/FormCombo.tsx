@@ -83,7 +83,7 @@ export default function FormCombo({ sachs, banDau, maCombo }: {
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
-        <div className="w-56">{oTT("giaCombo", "Giá combo / bộ (đồng)", { type: "number", min: 0, step: 1000 })}</div>
+        <div className="w-56">{oTT("giaCombo", "Giá combo / bộ (đồng)", { type: "number", min: 0, step: 1 })}</div>
         <p className="pb-2 text-sm">
           Tổng giá lẻ 1 bộ: <b>{tien(giaLe)}</b>
           {tietKiem > 0 && Number(tt.giaCombo) > 0 && <> · Khách tiết kiệm <b className="text-green-700">{tien(tietKiem)}</b> ({Math.round((tietKiem / giaLe) * 100)}%) / bộ</>}

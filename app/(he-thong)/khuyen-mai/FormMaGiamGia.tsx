@@ -40,8 +40,8 @@ export default function FormMaGiamGia({ banDau, maMGG, khoaMaCode }: { banDau: R
             <option value="SO_TIEN">Giảm số tiền cố định</option>
           </select>
         </label>
-        {o("giaTriGiam", loai === "PHAN_TRAM" ? "Giảm (%)" : "Giảm (đồng)", { batBuoc: true, type: "number", min: 0, step: loai === "PHAN_TRAM" ? 0.5 : 1000 })}
-        {o("giaTriDonToiThieu", "Đơn tối thiểu (đồng)", { type: "number", min: 0, step: 1000, goiY: "Xét trên tiền sau combo; bỏ trống = 0" })}
+        {o("giaTriGiam", loai === "PHAN_TRAM" ? "Giảm (%)" : "Giảm (đồng)", { batBuoc: true, type: "number", min: 0, step: loai === "PHAN_TRAM" ? 0.01 : 1 })}
+        {o("giaTriDonToiThieu", "Đơn tối thiểu (đồng)", { type: "number", min: 0, step: 1, goiY: "Xét trên tiền sau combo; bỏ trống = 0" })}
         {o("soLuongToiDa", "Số lượt tối đa", { batBuoc: true, type: "number", min: 1 })}
         <div />
         {o("ngayBatDau", "Từ ngày", { batBuoc: true, type: "date" })}
