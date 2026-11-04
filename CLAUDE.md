@@ -13,7 +13,7 @@ Bàn giao từ phiên chat claude.ai (04/11/2026). File này là nguồn sự th
 ## Tech stack (đã chốt)
 - Next.js (App Router) + **TypeScript**, Tailwind (mặc định, tối giản).
 - **SQL Server 2025** chạy bằng Docker (`mcr.microsoft.com/mssql/server:2025-latest`, user `sa`, port 1433).
-- **Prisma ORM** (provider `sqlserver`). Đăng nhập tự viết: session cookie + `bcrypt`. Xuất Excel: `exceljs`.
+- **Prisma ORM** (provider `sqlserver`). Đăng nhập tự viết: session cookie + `bcrypt`. Xuất Excel: `exceljs` (4.4).
 - Máy dev: Ubuntu. IDE: WebStorm + DataGrip.
 - Kiến trúc 3 lớp (khớp báo cáo): `app/` = giao diện, `lib/services/` = nghiệp vụ (BUS), `lib/repositories/` = truy vấn (DAO), model Prisma = lớp thực thể.
 
@@ -139,6 +139,11 @@ npm run dev
 - 04/11/2026 – **Khuyến mãi** (`/khuyen-mai` gồm mã giảm giá + combo; nghiệp vụ ở `khuyenMaiService.ts`): Staff xem danh sách (tư vấn khách), thêm/sửa/ngừng/xóa chỉ Admin (`/khuyen-mai/ma/...`, `/khuyen-mai/combo/...`). Nhật ký module `MA_GIAM_GIA`, `COMBO` (THEM, SUA, NGUNG, MO_LAI, XOA).
   - Mã: `maCode` viết HOA, 3–30 ký tự `A-Z 0-9 _ -`, duy nhất; PHAN_TRAM 0–100% (2 số lẻ), SO_TIEN số nguyên > 0; đơn tối thiểu ≥ 0; số lượt ≥ 1 và ≥ số lượt đã dùng. **Ngày áp dụng tính theo ngày**: 0:00 ngày bắt đầu → 23:59:59 ngày kết thúc (`docNgayInput` ở `lib/dinhDang.ts`). Tình trạng hiển thị suy ra (`tinhTrang`): Đang áp dụng / Chưa bắt đầu / Hết hạn / Hết lượt / Ngừng. **Mã đã dùng (daSuDung > 0 hoặc gắn vào hóa đơn, kể cả đơn nháp) → không đổi maCode, không xóa**, chỉ ngừng hoạt động. Sửa mức giảm áp ngay cho đơn đang lập, hóa đơn cũ giữ số tiền.
   - Combo: ≥ 2 cuốn, sách đang bán, SL 1–20/sách, **giá combo < tổng giá lẻ hiện tại**; sửa = thay toàn bộ dòng sách; xóa được (hóa đơn chỉ lưu `giamCombo`, không tham chiếu combo).
+- 04/11/2026 – **Dashboard + báo cáo** (chỉ Admin; nghiệp vụ ở `baoCaoService.ts`, Excel ở `xuatExcelBaoCao.ts`, thư viện **`exceljs` 4.4**):
+  - **Doanh thu = Σ tongTien hóa đơn DA_THANH_TOAN** (gồm VAT, sau mọi giảm); hóa đơn đã hủy chỉ đếm riêng. Ngày = `thoiGianTao` theo giờ máy chủ; gom nhóm làm ở Node (SQL Server lưu UTC). Theo thể loại / theo sách = thành tiền từng dòng **trước giảm giá cấp hóa đơn** (cộng lại = tạm tính). Không tính lãi gộp (ChiTietHoaDon không chụp giá nhập).
+  - `/dashboard`: hôm nay (so với hôm qua), tháng này, biểu đồ cột 7 ngày, việc cần xử lý (phiếu chờ duyệt, sách sắp hết, đơn đang lập), top 5 sách 30 ngày, hóa đơn gần đây. `/bao-cao`: chọn khoảng ngày (mặc định tháng này, tối đa 366 ngày, có nút nhanh), cơ cấu doanh thu (tạm tính − combo − hạng − mã − điểm + VAT), theo ngày/thể loại/top 10 sách/nhân viên/phương thức.
+  - Xuất Excel: route handler `GET /bao-cao/excel?tuNgay&denNgay` → 7 sheet (Tổng hợp, Theo ngày, Theo thể loại, Sách bán chạy, Theo nhân viên, Theo phương thức, Hóa đơn – gồm cả HĐ đã hủy để đối chiếu). exceljs ghi Date theo UTC → **bù múi giờ** (`gioDiaPhuong`) trước khi ghi. Nhật ký `BAO_CAO/XUAT_EXCEL`.
+  - Biểu đồ: `app/components/BieuDoCot.tsx` (server component HTML/CSS, 1 chuỗi 1 màu, tooltip khi rê chuột – theo skill dataviz). Không dùng thư viện biểu đồ.
 - 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: **`/hoa-don/[maHD]`** (POS thanh toán xong chuyển tới đây), in bằng `window.print()` (header ẩn khi in).
 - 04/11/2026 – **Hóa đơn** (`/hoa-don`, nghiệp vụ ở `hoaDonService.ts`): tra cứu theo số HĐ (`123`/`#123`), SĐT/tên khách, khoảng ngày (theo `thoiGianTao` = lúc thanh toán, giờ máy chủ), trạng thái (Đã thanh toán / Đã hủy sau thanh toán / Đơn nháp đã hủy), phương thức, nhân viên (Admin); 20 HĐ/trang; không liệt kê đơn DANG_LAP. Dòng tổng hợp: doanh thu chỉ tính DA_THANH_TOAN.
   - **Hủy hóa đơn đã thanh toán** (chỉ Admin, lý do bắt buộc ≤ 255 ký tự, 1 transaction, chuyển trạng thái có điều kiện): hoàn kho từng dòng; khách: `diemHienTai += diemSuDung − diemCong` (**khách đã tiêu bớt điểm thì về 0**, nhật ký ghi số điểm hụt), `diemTichLuy −= diemCong`, **xét lại hạng theo điểm tích lũy (có thể hạ hạng)**; hoàn 1 lượt mã giảm giá; số tiền trên hóa đơn giữ nguyên; `lyDoHuy`, `thoiGianCapNhat` = lúc hủy. Nhật ký `HOA_DON/HUY`. Không hủy được đơn chưa thanh toán (đơn nháp hủy ở POS).
@@ -158,7 +163,7 @@ npm run dev
 
 ## Tiến độ
 - [x] Khởi tạo Next.js + Prisma, `schema.prisma` 21 bảng, migrate lên SQL Server Docker, seed dữ liệu mẫu (04/11/2026).
-- [x] Đăng nhập / đăng xuất, phân quyền Admin → Dashboard, Staff → POS, chặn tài khoản khóa, ghi nhật ký (04/11/2026, branch `feature/dang-nhap`). Dashboard và POS hiện là trang giữ chỗ.
+- [x] Đăng nhập / đăng xuất, phân quyền Admin → Dashboard, Staff → POS, chặn tài khoản khóa, ghi nhật ký (04/11/2026, branch `feature/dang-nhap`).
 - [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin).
 - [x] POS bán hàng: tìm sách, giỏ hàng (tạm giữ kho), chọn / tạo nhanh khách thành viên, combo, mã giảm giá, đổi điểm, VAT, tự hủy đơn nháp quá 30 phút / khi đăng xuất, thanh toán 3 phương thức + tiền thừa, xem/in hóa đơn, hủy đơn nháp (04/11/2026, branch `feature/pos`). Kiểm thử nghiệp vụ: `npm run test:pos` (**ghi vào DB thật, chạy xong tự seed lại**).
 - [x] Quản lý sách + thể loại & VAT (04/11/2026, branch `feature/quan-ly-sach`). Kiểm thử: `npm run test:sach`; chạy cả bộ: `npm test` (**ghi DB thật, xong tự seed lại**).
@@ -167,7 +172,8 @@ npm run dev
 - [x] Hóa đơn: tra cứu, chi tiết/in, hủy hóa đơn đã thanh toán (04/11/2026, branch `feature/hoa-don`). Kiểm thử: `npm run test:hoa-don`.
 - [x] Khách hàng + hạng thành viên & tích điểm (04/11/2026, branch `feature/khach-hang`). Kiểm thử: `npm run test:khach-hang`.
 - [x] Khuyến mãi: mã giảm giá + combo (04/11/2026, branch `feature/ma-giam-gia`). Kiểm thử: `npm run test:khuyen-mai`.
-- [ ] Các module còn lại (9–10), mỗi module 1 branch `feature/<module>`.
+- [x] Dashboard + báo cáo doanh thu + xuất Excel (04/11/2026, branch `feature/dashboard`). Kiểm thử: `npm run test:bao-cao`.
+- [ ] Module 10: Cài đặt + quản lý tài khoản, mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
 - Thống nhất trạng thái phiếu "Đã duyệt" (UC7.3 đang ghi "Hoàn tất").
