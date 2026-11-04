@@ -4,6 +4,7 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import type { Sach, NhaCungCap } from "../lib/generated/prisma/client";
+import { tinhTienHoaDon } from "../lib/services/tinhTienHoaDon";
 
 const MAT_KHAU_MAC_DINH = "123456";
 
@@ -66,13 +67,19 @@ async function main() {
     prisma.hangThanhVien.create({ data: { tenHang: "Vàng", diemToiThieu: 2000, phanTramUuDai: 10 } }),
   ]);
 
-  // ── 3. Thể loại
-  const tenTheLoai = [
-    "Văn học Việt Nam", "Văn học nước ngoài", "Kinh tế", "Kỹ năng sống", "Thiếu nhi",
-    "Khoa học", "Lịch sử", "Công nghệ thông tin", "Tâm lý", "Ngoại ngữ",
+  // ── 3. Thể loại [tên, thuế suất VAT %]: 0% = chính trị/giáo dục/văn hóa (không chịu thuế GTGT), 5% = còn lại
+  const dsTheLoai: [string, number][] = [
+    ["Văn học Việt Nam", 5], ["Văn học nước ngoài", 5], ["Kinh tế", 5], ["Kỹ năng sống", 5], ["Thiếu nhi", 5],
+    ["Khoa học", 0], ["Lịch sử", 0], ["Công nghệ thông tin", 5], ["Tâm lý", 5], ["Ngoại ngữ", 5],
+    ["Giáo trình – Sách giáo khoa", 0], ["Chính trị – Pháp luật", 0],
   ];
   const theLoai: Record<string, number> = {};
-  for (const tenTL of tenTheLoai) theLoai[tenTL] = (await prisma.theLoai.create({ data: { tenTL } })).maTL;
+  const thueSuatTheoTL: Record<number, number> = {};
+  for (const [tenTL, thueSuatVAT] of dsTheLoai) {
+    const tl = await prisma.theLoai.create({ data: { tenTL, thueSuatVAT } });
+    theLoai[tenTL] = tl.maTL;
+    thueSuatTheoTL[tl.maTL] = thueSuatVAT;
+  }
 
   // ── 4. Sách (30 cuốn) [isbn, tên, tác giả, NXB, năm, thể loại, giá nhập, giá bán, kệ, tồn]
   const dsSach: [string, string, string, string, number, string, number, number, string, number][] = [
@@ -101,7 +108,7 @@ async function main() {
     ["9786042000023", "Súng, vi trùng và thép", "Jared Diamond", "NXB Thế giới", 2020, "Lịch sử", 150000, 235000, "D2-03", 6],
     ["9786042000024", "Clean Code", "Robert C. Martin", "NXB Bách Khoa", 2021, "Công nghệ thông tin", 180000, 280000, "E1-01", 9],
     ["9786042000025", "Lập trình Python cơ bản", "Nhiều tác giả", "NXB Thông tin và Truyền thông", 2022, "Công nghệ thông tin", 90000, 140000, "E1-02", 16],
-    ["9786042000026", "Phân tích thiết kế hướng đối tượng với UML", "Đặng Văn Đức", "NXB Giáo dục", 2019, "Công nghệ thông tin", 70000, 110000, "E1-03", 25],
+    ["9786042000026", "Phân tích thiết kế hướng đối tượng với UML", "Đặng Văn Đức", "NXB Giáo dục", 2019, "Giáo trình – Sách giáo khoa", 70000, 110000, "E1-03", 25],
     ["9786042000027", "Tư duy nhanh và chậm", "Daniel Kahneman", "NXB Thế giới", 2020, "Tâm lý", 130000, 205000, "F1-01", 13],
     ["9786042000028", "Sức mạnh của thói quen", "Charles Duhigg", "NXB Lao động", 2021, "Tâm lý", 80000, 129000, "F1-02", 17],
     ["9786042000029", "Hackers TOEIC Reading", "Hackers Academia", "NXB Tổng hợp", 2022, "Ngoại ngữ", 150000, 230000, "G1-01", 21],
@@ -159,7 +166,7 @@ async function main() {
     },
   });
 
-  // ── 10–11. Một số hóa đơn đã thanh toán (khách vãng lai, không giảm giá) cho Dashboard.
+  // ── 10–11. Một số hóa đơn đã thanh toán (khách vãng lai, không giảm giá; VAT 0%/5% theo thể loại) cho Dashboard.
   // Tồn kho ở trên coi như ĐÃ trừ số bán này.
   const dsDon: { ngay: number; nv: number; tt: string; dong: [number, number][] }[] = [
     { ngay: 6, nv: staff1.maTK, tt: "TIEN_MAT", dong: [[0, 1], [12, 2]] },
@@ -173,14 +180,15 @@ async function main() {
   for (const don of dsDon) {
     const chiTiets = don.dong.map(([i, soLuong]) => {
       const donGiaBan = Number(sach[i].giaBan);
-      return { maSach: sach[i].maSach, soLuong, donGiaBan, thanhTien: donGiaBan * soLuong };
+      const thueSuatVAT = thueSuatTheoTL[sach[i].maTL];
+      return { maSach: sach[i].maSach, soLuong, donGiaBan, thanhTien: donGiaBan * soLuong, thueSuatVAT };
     });
-    const tamTinh = chiTiets.reduce((s, c) => s + c.thanhTien, 0);
+    const tien = tinhTienHoaDon({ dong: chiTiets, giaTriMotDiem: 1000, tyLeQuyDoiDiem: 10000 });
     await prisma.hoaDon.create({
       data: {
         maTK: don.nv, thoiGianTao: ngayTruoc(don.ngay, 9 + don.ngay), trangThai: "DA_THANH_TOAN",
-        tamTinh, thueVAT: 0, tienGiam: 0, tongTien: tamTinh, phuongThucTT: don.tt,
-        tienKhachDua: don.tt === "TIEN_MAT" ? Math.ceil(tamTinh / 50000) * 50000 : tamTinh,
+        tamTinh: tien.tamTinh, thueVAT: tien.thueVAT, tienGiam: tien.tienGiam, tongTien: tien.tongTien, phuongThucTT: don.tt,
+        tienKhachDua: don.tt === "TIEN_MAT" ? Math.ceil(tien.tongTien / 50000) * 50000 : tien.tongTien,
         chiTiets: { create: chiTiets },
       },
     });

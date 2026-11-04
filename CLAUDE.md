@@ -22,7 +22,7 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 
 1. TaiKhoan(maTK PK, soDienThoai UQ, matKhauHash, hoTen, email, vaiTro ADMIN|STAFF, trangThai HOAT_DONG|KHOA, ngayTao)
 2. MaOTP(maOTP PK, maTK FK, maCode, thoiGianHetHan, daSuDung)
-3. TheLoai(maTL PK, tenTL UQ)
+3. TheLoai(maTL PK, tenTL UQ, thueSuatVAT % [0 hoặc 5, mặc định 5])
 4. Sach(maSach PK, isbn UQ, tenSach, tacGia, nhaXuatBan, namXB, maTL FK, giaNhap, giaBan, hinhAnh, viTriKe, soLuongTon, soLuongTamGiu, dinhMucToiThieu=5, trangThai DANG_BAN|NGUNG_KINH_DOANH)
 5. HangThanhVien(maHang PK, tenHang UQ, diemToiThieu, phanTramUuDai)
 6. KhachHang(maKH PK, soDienThoai UQ, hoTen, email, diaChi, diemHienTai, diemTichLuy, maHang FK, ngayTao)
@@ -30,7 +30,7 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 8. Combo(maCombo PK, tenCombo, giaCombo, ngayBatDau, ngayKetThuc, trangThai)
 9. ChiTietCombo(maCombo PK/FK, maSach PK/FK, soLuong)
 10. HoaDon(maHD PK, maTK FK, maKH FK null, maMGG FK null, thoiGianTao, trangThai DANG_LAP|DA_THANH_TOAN|DA_HUY, tamTinh, thueVAT, tienGiam, diemSuDung, tongTien, phuongThucTT TIEN_MAT|QUET_THE|MA_QR, tienKhachDua, lyDoHuy)
-11. ChiTietHoaDon(maHD PK/FK, maSach PK/FK, soLuong, donGiaBan [snapshot giá lúc bán], thanhTien)
+11. ChiTietHoaDon(maHD PK/FK, maSach PK/FK, soLuong, donGiaBan [snapshot giá lúc bán], thanhTien, thueSuatVAT [snapshot thuế suất thể loại lúc bán])
 12. NhaCungCap(maNCC PK, tenNCC, diaChi, maSoThue UQ, nguoiLienHe, soDienThoai, trangThaiHopTac DANG_GIAO_DICH|NGUNG_GIAO_DICH)
 13. PhieuNhap(maPN PK, maNCC FK, maTKLap FK, maTKDuyet FK null, ngayLap, ngayDuyet, trangThai CHO_DUYET|DA_DUYET|TU_CHOI, tongTien, ghiChu, lyDoTuChoi)
 14. ChiTietPhieuNhap(maPN PK/FK, maSach PK/FK, soLuong, giaNhap)
@@ -45,7 +45,13 @@ Kiểu SQL Server: ENUM → NVARCHAR + CHECK; BOOLEAN → BIT; DATETIME → DATE
 ## Quy tắc nghiệp vụ quan trọng
 - Thêm sách vào đơn đang lập → tăng `soLuongTamGiu`; thanh toán → trừ `soLuongTon` và giải phóng tạm giữ; hủy đơn nháp → giải phóng tạm giữ. Số bán được = soLuongTon − soLuongTamGiu.
 - Phiếu nhập / kiểm kê / xuất hủy: Staff lập (CHO_DUYET) → Admin duyệt (cộng/trừ kho) hoặc từ chối (kho không đổi).
-- Thanh toán: áp mã giảm giá (kiểm tra hạn, lượt dùng, đơn tối thiểu), ưu đãi theo hạng thẻ, đổi điểm; cộng điểm theo tyLeQuyDoiDiem; xét thăng hạng theo diemTichLuy.
+- Thanh toán – **thứ tự áp ưu đãi: hạng thẻ → mã giảm giá → đổi điểm, VAT tính SAU giảm**. Cài đặt duy nhất ở `lib/services/tinhTienHoaDon.ts` (hàm thuần, POS và seed dùng chung – không tự tính lại ở chỗ khác):
+  1. `giamHang` = tamTinh × phanTramUuDai của hạng.
+  2. Mã giảm giá: kiểm tra hạn, lượt dùng (ở service) và đơn tối thiểu (xét trên số tiền **sau** ưu đãi hạng); PHAN_TRAM tính trên số tiền sau ưu đãi hạng.
+  3. Đổi điểm: diemSuDung ≤ diemHienTai, giá trị = điểm × giaTriMotDiem, không vượt số tiền còn lại.
+  4. VAT: tổng giảm phân bổ theo tỷ lệ thanhTien từng dòng, mỗi dòng nhân thuế suất của thể loại. tongTien = tiền sau giảm + VAT. Làm tròn đến đồng.
+  - Cộng điểm = floor(tongTien / tyLeQuyDoiDiem) (chỉ khi có KH thành viên); xét thăng hạng theo diemTichLuy.
+- **Thuế GTGT sách**: 0% (không chịu thuế) cho sách phục vụ chính trị, giáo dục, văn hóa (sách giáo khoa, giáo trình, chính trị – pháp luật, khoa học, lịch sử...); 5% cho sách còn lại (tham khảo, ngoại ngữ, truyện, kỹ năng sống...). Thuế suất gắn theo **thể loại** (`TheLoai.thueSuatVAT`) → khi thêm sách phải chọn đúng thể loại.
 - Hủy hóa đơn đã thanh toán (chỉ Admin, bắt buộc lý do): hoàn kho, trừ điểm khách.
 - Sách "Ngừng kinh doanh" ẩn khỏi POS, giữ dữ liệu cho hóa đơn cũ. Giá bán ≥ giá nhập.
 - Mọi thao tác quan trọng ghi NhatKyHeThong.
@@ -86,11 +92,12 @@ npm run dev
 - 04/11/2026 – Giá trị trạng thái chưa nêu trong lược đồ gốc: `MaGiamGia.trangThai`, `Combo.trangThai` = `HOAT_DONG | NGUNG_HOAT_DONG`.
 - 04/11/2026 – CHECK constraint trong migration `init`: các "enum", `giaBan >= giaNhap`, `0 <= soLuongTamGiu <= soLuongTon`, điểm ≥ 0, mã giảm giá `daSuDung <= soLuongToiDa`, `%` ≤ 100, `CauHinhHeThong.maCH = 1` (1 dòng).
 - 04/11/2026 – `KhachHang.maHang` bắt buộc (khách mới gán hạng có `diemToiThieu` thấp nhất). `NhatKyHeThong.maTK` cho phép NULL (vd: đăng nhập thất bại). `HoaDon.phuongThucTT` NULL khi đang lập.
-- 04/11/2026 – `HoaDon.thueVAT`, `tienGiam` lưu **số tiền**. `CauHinhHeThong.tyLeQuyDoiDiem` = số tiền chi tiêu để được 1 điểm (mặc định 10.000đ); `giaTriMotDiem` = giá trị 1 điểm khi đổi (mặc định 1.000đ).
+- 04/11/2026 – **VAT theo thể loại**: thêm cột `TheLoai.thueSuatVAT` và snapshot `ChiTietHoaDon.thueSuatVAT` (migration `them_thue_suat_vat`, CHECK 0–100). Seed có 12 thể loại: thêm "Giáo trình – Sách giáo khoa", "Chính trị – Pháp luật" (0%); "Khoa học", "Lịch sử" 0%; còn lại 5%.
+- 04/11/2026 – Thứ tự giảm giá hạng → mã → điểm, VAT sau giảm (chi tiết ở mục Quy tắc nghiệp vụ).
+- 04/11/2026 – `HoaDon.thueVAT`, `tienGiam` lưu **số tiền** (tienGiam = giảm hạng + giảm mã + giảm điểm). `CauHinhHeThong.tyLeQuyDoiDiem` = số tiền chi tiêu để được 1 điểm (mặc định 10.000đ); `giaTriMotDiem` = giá trị 1 điểm khi đổi (mặc định 1.000đ).
 
 ## Câu hỏi còn mở (cần nhóm chốt)
-- Thuế suất VAT áp cho hóa đơn là bao nhiêu? (chưa có cột tỷ lệ trong CauHinhHeThong; seed đang để thueVAT = 0).
-- Thứ tự áp giảm giá khi thanh toán: ưu đãi hạng → mã giảm giá → đổi điểm? Tính VAT trước hay sau giảm?
+- Điểm cộng đang tính trên `tongTien` (đã gồm VAT, sau mọi giảm giá). Nếu muốn tính trên tiền trước thuế thì sửa 1 dòng trong `tinhTienHoaDon.ts`.
 
 ## Tiến độ
 - [x] Khởi tạo Next.js + Prisma, `schema.prisma` 21 bảng, migrate lên SQL Server Docker, seed dữ liệu mẫu (04/11/2026).
