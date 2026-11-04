@@ -127,6 +127,10 @@ npm run dev
 - 04/11/2026 – **Tạo nhanh khách hàng tại POS** (UC3.1 luồng 7a): SĐT chưa đăng ký → form nhỏ (SĐT có sẵn + họ tên) → tạo khách hạng thấp nhất, 0 điểm, gắn vào đơn. Nghiệp vụ tạo khách nằm ở `lib/services/khachHangService.ts` (`taoMoi`, kiểm tra SĐT/họ tên/email, ghi nhật ký `KHACH_HANG/THEM`) – **màn hình Khách hàng phải dùng lại service này**.
 - 04/11/2026 – **Quản lý sách**: Staff chỉ **xem** danh sách `/sach` (tra cứu); thêm/sửa sách, ngừng kinh doanh/mở bán lại, quản lý thể loại chỉ Admin. **Không sửa tồn kho ở màn hình sách** (sách mới tồn = 0; kho chỉ đổi qua phiếu nhập/kiểm kê/xuất hủy có duyệt). **Không xóa sách** – chỉ ngừng kinh doanh. ISBN 10 hoặc 13 số (bỏ dấu gạch), duy nhất; năm XB 1900..năm sau; định mức mặc định 5; ảnh bìa là đường dẫn (chưa có upload file). "Sắp hết hàng" = `soLuongTon ≤ dinhMucToiThieu`. Danh sách 15 sách/trang.
 - 04/11/2026 – **Thể loại**: thuế suất chỉ chọn 0% hoặc 5%; tên duy nhất (không phân biệt hoa/thường theo collation SQL Server); chỉ xóa được thể loại chưa có sách. Đổi giá sách / thuế suất thể loại chỉ áp dụng cho đơn mới. Nhật ký module `SACH` (THEM, SUA – ghi giá cũ→mới, NGUNG_KINH_DOANH, MO_BAN_LAI) và `THE_LOAI` (THEM, SUA, XOA).
+- 04/11/2026 – **Kho (kiểm kê, xuất hủy)** – `/kho` (tổng quan + sách sắp hết), `/kho/kiem-ke`, `/kho/xuat-huy` (danh sách lọc trạng thái, `/tao`, `/[ma]`). Staff **và** Admin lập phiếu, xem mọi phiếu; chỉ Admin duyệt/từ chối (từ chối bắt buộc lý do; Admin được duyệt phiếu chính mình lập). Nghiệp vụ ở `lib/services/khoService.ts`, repository chung `phieuKhoRepository.ts`; thay đổi kho dùng `sachRepository.dieuChinhTon(db, maSach, ±n)` (UPDATE có điều kiện `soLuongTon + n >= soLuongTamGiu`) – **phiếu nhập (module 5) dùng lại hàm này**.
+  - Kiểm kê: `slHeThong` = tồn lúc lập; lệch thì bắt buộc lý do. **Duyệt = cộng chênh lệch (slThucTe − slHeThong) vào tồn hiện tại**, không ghi đè bằng slThucTe (giữa lúc lập và duyệt có thể đã bán thêm). Một sách không được nằm trong 2 phiếu kiểm kê chờ duyệt cùng lúc.
+  - Xuất hủy: SL hủy ≤ tồn − tạm giữ, bắt buộc lý do mỗi dòng; không giữ chỗ khi lập, kiểm tra lại lúc duyệt.
+  - Duyệt trong 1 transaction, chuyển trạng thái có điều kiện `WHERE trangThai = 'CHO_DUYET'`; 1 dòng không đủ hàng → rollback cả phiếu, phiếu vẫn chờ duyệt. Nhật ký module `KHO`: LAP_/DUYET_/TU_CHOI_ + KIEM_KE | XUAT_HUY. Giá trị tồn / giá trị hủy (theo giá nhập) chỉ Admin thấy.
 - 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: `/pos/hoa-don/[maHD]`, in bằng `window.print()` (header ẩn khi in).
 - 04/11/2026 – Hash mật khẩu dùng **`bcryptjs`** (thuần JS, cùng định dạng hash bcrypt, không cần build native).
 - 04/11/2026 – Tên model Prisma = tên bảng (PascalCase tiếng Việt, `@@map` giữ đúng tên bảng); client dùng camelCase: `prisma.taiKhoan`, `prisma.hoaDon`...
@@ -147,7 +151,8 @@ npm run dev
 - [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin).
 - [x] POS bán hàng: tìm sách, giỏ hàng (tạm giữ kho), chọn / tạo nhanh khách thành viên, combo, mã giảm giá, đổi điểm, VAT, tự hủy đơn nháp quá 30 phút / khi đăng xuất, thanh toán 3 phương thức + tiền thừa, xem/in hóa đơn, hủy đơn nháp (04/11/2026, branch `feature/pos`). Kiểm thử nghiệp vụ: `npm run test:pos` (**ghi vào DB thật, chạy xong tự seed lại**).
 - [x] Quản lý sách + thể loại & VAT (04/11/2026, branch `feature/quan-ly-sach`). Kiểm thử: `npm run test:sach`; chạy cả bộ: `npm test` (**ghi DB thật, xong tự seed lại**).
-- [ ] Các module còn lại (4–10), mỗi module 1 branch `feature/<module>`.
+- [x] Tồn kho + phiếu kiểm kê / xuất hủy, lập → duyệt / từ chối (04/11/2026, branch `feature/ton-kho`). Kiểm thử: `npm run test:kho`.
+- [ ] Các module còn lại (5–10), mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)
 - Thống nhất trạng thái phiếu "Đã duyệt" (UC7.3 đang ghi "Hoàn tất").

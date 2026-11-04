@@ -68,4 +68,39 @@ export const sachRepository = {
       WHERE maSach = ${maSach} AND soLuongTamGiu >= ${soLuong} AND soLuongTon >= ${soLuong}`;
     return n === 1;
   },
+
+  /**
+   * Cộng/trừ tồn kho (duyệt phiếu kiểm kê / xuất hủy / nhập). Chỉ thành công nếu sau khi đổi
+   * tồn kho vẫn ≥ số đang tạm giữ trong đơn chưa thanh toán (nên cũng ≥ 0).
+   */
+  async dieuChinhTon(db: Db, maSach: number, chenhLech: number) {
+    const n = await db.$executeRaw`
+      UPDATE Sach SET soLuongTon = soLuongTon + ${chenhLech}
+      WHERE maSach = ${maSach} AND soLuongTon + ${chenhLech} >= soLuongTamGiu`;
+    return n === 1;
+  },
+
+  /** Danh sách gọn để chọn sách khi lập phiếu kho. */
+  tatCaDeChon: () =>
+    prisma.sach.findMany({
+      select: { maSach: true, tenSach: true, isbn: true, viTriKe: true, soLuongTon: true, soLuongTamGiu: true, trangThai: true },
+      orderBy: { tenSach: "asc" },
+    }),
+
+  /** Sách đang bán có tồn ≤ định mức, ít nhất lên trước. */
+  sapHetHang: () =>
+    prisma.sach.findMany({
+      where: { trangThai: "DANG_BAN", soLuongTon: { lte: prisma.sach.fields.dinhMucToiThieu } },
+      include: { theLoai: true },
+      orderBy: [{ soLuongTon: "asc" }, { tenSach: "asc" }],
+    }),
+
+  /** Tổng quan kho: số đầu sách, tổng số cuốn, giá trị tồn theo giá nhập. */
+  async thongKeTon() {
+    const [r] = await prisma.$queryRaw<{ soDauSach: number; tongCuon: number; giaTriTon: number }[]>`
+      SELECT COUNT(*) AS soDauSach, COALESCE(SUM(soLuongTon), 0) AS tongCuon,
+             COALESCE(SUM(CAST(soLuongTon AS DECIMAL(18,2)) * giaNhap), 0) AS giaTriTon
+      FROM Sach WHERE trangThai = N'DANG_BAN'`;
+    return { soDauSach: Number(r.soDauSach), tongCuon: Number(r.tongCuon), giaTriTon: Number(r.giaTriTon) };
+  },
 };
