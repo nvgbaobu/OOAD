@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma client sinh ra
 /lib/generated/
+
+# Playwright MCP (ảnh chụp/log khi test)
+/.playwright-mcp/
