@@ -5,8 +5,9 @@ import { posService } from "@/lib/services/posService";
 import { tienVND, gioPhut } from "@/lib/dinhDang";
 import FormHanhDong from "@/app/components/FormHanhDong";
 import KhoiThanhToan from "./KhoiThanhToan";
+import KhoiChonKhach from "./KhoiChonKhach";
 import {
-  themSach, capNhatSoLuong, chonKhachHang, boKhachHang, apMaGiamGia, boMaGiamGia, datDiemSuDung, huyDon,
+  themSach, capNhatSoLuong, boKhachHang, apMaGiamGia, boMaGiamGia, datDiemSuDung, huyDon,
 } from "@/app/actions/pos";
 
 export const metadata: Metadata = { title: "Bán hàng" };
@@ -141,10 +142,7 @@ export default async function TrangPOS({ searchParams }: PageProps<"/pos">) {
               </FormHanhDong>
             </div>
           ) : (
-            <FormHanhDong action={chonKhachHang} className="flex flex-wrap gap-2">
-              <input name="soDienThoai" inputMode="numeric" placeholder="SĐT khách thành viên (bỏ trống nếu khách lẻ)" className={`${oNhap} flex-1`} />
-              <button className={nutNho}>Chọn</button>
-            </FormHanhDong>
+            <KhoiChonKhach />
           )}
         </div>
 

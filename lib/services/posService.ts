@@ -11,10 +11,17 @@ import { maGiamGiaRepository } from "@/lib/repositories/maGiamGiaRepository";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
 import { comboRepository } from "@/lib/repositories/comboRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { khachHangService, LoiKhachHang, SDT_HOP_LE } from "@/lib/services/khachHangService";
 import { tinhTienHoaDon, LoiTinhTien, type KetQuaTinhTien, type ComboTinhTien } from "@/lib/services/tinhTienHoaDon";
 
 /** Lỗi nghiệp vụ – thông điệp hiển thị thẳng cho người dùng. */
 export class LoiPOS extends Error {}
+/** SĐT chưa đăng ký → POS mở form tạo nhanh khách hàng (UC3.1 luồng 7a). */
+export class KhongTimThayKhachHang extends LoiPOS {
+  constructor(public soDienThoai: string) {
+    super(`Số điện thoại ${soDienThoai} chưa đăng ký thành viên`);
+  }
+}
 
 export type PhuongThucTT = "TIEN_MAT" | "QUET_THE" | "MA_QR";
 export const TEN_PHUONG_THUC: Record<PhuongThucTT, string> = { TIEN_MAT: "Tiền mặt", QUET_THE: "Quẹt thẻ", MA_QR: "Mã QR" };
@@ -253,10 +260,27 @@ export const posService = {
 
   async chonKhachHang(maTK: number, soDienThoai: string) {
     await donDepTruocThaoTac(maTK);
+    if (!SDT_HOP_LE.test(soDienThoai)) throw new LoiPOS("Số điện thoại gồm 10 chữ số, bắt đầu bằng 0");
     const kh = await khachHangRepository.timTheoSoDienThoai(prisma, soDienThoai);
-    if (!kh) throw new LoiPOS(`Không tìm thấy khách hàng có SĐT ${soDienThoai}`);
+    if (!kh) throw new KhongTimThayKhachHang(soDienThoai);
     const don = await layHoacTaoDon(prisma, maTK);
     await prisma.hoaDon.update({ where: { maHD: don.maHD }, data: { maKH: kh.maKH, diemSuDung: 0, thoiGianCapNhat: new Date() } });
+  },
+
+  /** Tạo nhanh khách hàng tại quầy rồi gắn vào đơn đang lập. */
+  async taoNhanhKhachHang(maTK: number, soDienThoai: string, hoTen: string) {
+    await donDepTruocThaoTac(maTK);
+    await prisma.$transaction(async (tx) => {
+      let kh;
+      try {
+        kh = await khachHangService.taoMoi({ soDienThoai, hoTen }, maTK, tx);
+      } catch (e) {
+        if (e instanceof LoiKhachHang) throw new LoiPOS(e.message);
+        throw e;
+      }
+      const don = await layHoacTaoDon(tx, maTK);
+      await tx.hoaDon.update({ where: { maHD: don.maHD }, data: { maKH: kh.maKH, diemSuDung: 0, thoiGianCapNhat: new Date() } });
+    });
   },
 
   async boKhachHang(maTK: number) {

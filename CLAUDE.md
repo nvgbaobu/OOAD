@@ -121,6 +121,7 @@ npm run dev
 - 04/11/2026 – Thêm cột `HoaDon.diemCong` (migration `them_diem_cong_hoa_don`) để khi hủy hóa đơn đã thanh toán trừ đúng số điểm đã cộng.
 - 04/11/2026 – Mã giảm giá kiểm tra (trạng thái, ngày, lượt) lúc áp **và** lúc thanh toán; lượt dùng tăng khi thanh toán. Đổi mã → số điểm đã nhập bị đặt lại 0. Bỏ khách hàng → bỏ điểm. Mã nhập không phân biệt hoa/thường.
 - 04/11/2026 – Thăng hạng: sau thanh toán, hạng = hạng có `diemToiThieu` cao nhất ≤ `diemTichLuy` (chỉ nâng, không hạ).
+- 04/11/2026 – **Tạo nhanh khách hàng tại POS** (UC3.1 luồng 7a): SĐT chưa đăng ký → form nhỏ (SĐT có sẵn + họ tên) → tạo khách hạng thấp nhất, 0 điểm, gắn vào đơn. Nghiệp vụ tạo khách nằm ở `lib/services/khachHangService.ts` (`taoMoi`, kiểm tra SĐT/họ tên/email, ghi nhật ký `KHACH_HANG/THEM`) – **màn hình Khách hàng phải dùng lại service này**.
 - 04/11/2026 – Staff chỉ xem/in được hóa đơn do mình lập; Admin xem tất cả. Trang hóa đơn: `/pos/hoa-don/[maHD]`, in bằng `window.print()` (header ẩn khi in).
 - 04/11/2026 – Hash mật khẩu dùng **`bcryptjs`** (thuần JS, cùng định dạng hash bcrypt, không cần build native).
 - 04/11/2026 – Tên model Prisma = tên bảng (PascalCase tiếng Việt, `@@map` giữ đúng tên bảng); client dùng camelCase: `prisma.taiKhoan`, `prisma.hoaDon`...
@@ -139,7 +140,7 @@ npm run dev
 - [x] Khởi tạo Next.js + Prisma, `schema.prisma` 21 bảng, migrate lên SQL Server Docker, seed dữ liệu mẫu (04/11/2026).
 - [x] Đăng nhập / đăng xuất, phân quyền Admin → Dashboard, Staff → POS, chặn tài khoản khóa, ghi nhật ký (04/11/2026, branch `feature/dang-nhap`). Dashboard và POS hiện là trang giữ chỗ.
 - [ ] Quên mật khẩu bằng OTP (bảng MaOTP) – chưa làm, cần chốt kênh gửi OTP (email/SMS/hiển thị cho Admin).
-- [x] POS bán hàng: tìm sách, giỏ hàng (tạm giữ kho), chọn khách thành viên, mã giảm giá, đổi điểm, VAT, thanh toán 3 phương thức + tiền thừa, xem/in hóa đơn, hủy đơn nháp (04/11/2026, branch `feature/pos`). Kiểm thử nghiệp vụ: `npm run test:pos` (**ghi vào DB thật, chạy xong tự seed lại**).
+- [x] POS bán hàng: tìm sách, giỏ hàng (tạm giữ kho), chọn / tạo nhanh khách thành viên, combo, mã giảm giá, đổi điểm, VAT, tự hủy đơn nháp quá 30 phút / khi đăng xuất, thanh toán 3 phương thức + tiền thừa, xem/in hóa đơn, hủy đơn nháp (04/11/2026, branch `feature/pos`). Kiểm thử nghiệp vụ: `npm run test:pos` (**ghi vào DB thật, chạy xong tự seed lại**).
 - [ ] Các module còn lại (3–10), mỗi module 1 branch `feature/<module>`.
 
 ## Lưu ý cho báo cáo (đã xử lý ở bản Lan04 track changes)

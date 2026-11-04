@@ -30,7 +30,7 @@ async function main() {
   await posService.capNhatSoLuong(maTK, dacNhanTam.maSach, 2);
 
   console.log("2. Khách hàng, mã, điểm");
-  await phaiLoi(() => posService.chonKhachHang(maTK, "0999999999"), "Không tìm thấy");
+  await phaiLoi(() => posService.chonKhachHang(maTK, "0999999999"), "chưa đăng ký");
   await posService.chonKhachHang(maTK, "0933333333"); // Lê Thu Hà – Vàng 10%, 1500 điểm
   await phaiLoi(() => posService.apMaGiamGia(maTK, "TET2026"), "hết hạn");
   await phaiLoi(() => posService.apMaGiamGia(maTK, "HETLUOT"), "hết lượt");
@@ -116,6 +116,18 @@ async function main() {
   d = await donCuoi();
   kiemTra(d.trangThai === "DA_HUY" && d.lyDoHuy === LY_DO_HUY.DANG_XUAT && (await sach(doraemon.isbn)).soLuongTamGiu === 0, "đăng xuất → DA_HUY, trả kho");
   await posService.huyDonKhiDangXuat(maTK); // không có đơn → không lỗi
+
+  console.log("7. Tạo nhanh khách hàng tại quầy");
+  await phaiLoi(() => posService.chonKhachHang(maTK, "0912345678"), "chưa đăng ký");
+  await phaiLoi(() => posService.taoNhanhKhachHang(maTK, "0911111111", "Trùng SĐT"), "đã được đăng ký");
+  await phaiLoi(() => posService.taoNhanhKhachHang(maTK, "0912345678", "  "), "Nhập họ tên");
+  await phaiLoi(() => posService.taoNhanhKhachHang(maTK, "12345", "Sai SĐT"), "10 chữ số");
+  await posService.taoNhanhKhachHang(maTK, "0912345678", "  Nguyễn   Văn Mới ");
+  const khMoi = await prisma.khachHang.findUniqueOrThrow({ where: { soDienThoai: "0912345678" }, include: { hangThanhVien: true } });
+  kiemTra(khMoi.hoTen === "Nguyễn Văn Mới" && khMoi.hangThanhVien.tenHang === "Đồng" && khMoi.diemHienTai === 0, "tạo KH: chuẩn hóa tên, hạng Đồng, 0 điểm");
+  const gioMoi = await posService.layGioHang(maTK);
+  kiemTra(gioMoi.don?.khachHang?.maKH === khMoi.maKH, "KH mới đã gắn vào đơn đang lập");
+  await posService.huyDon(maTK);
 
   console.log(loi ? `\n✘ ${loi} kiểm tra thất bại` : "\n✔ Tất cả kiểm tra đạt");
   process.exitCode = loi ? 1 : 0;
