@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authService } from "@/lib/services/authService";
 import { taoPhien, xoaPhien } from "@/lib/auth/session";
 import { layNguoiDung, trangChuTheoVaiTro } from "@/lib/auth/dal";
+import { posService } from "@/lib/services/posService";
 
 export type TrangThaiFormDangNhap = {
   loi?: string;
@@ -30,7 +31,10 @@ export async function dangNhap(_: TrangThaiFormDangNhap, formData: FormData): Pr
 
 export async function dangXuat() {
   const nd = await layNguoiDung();
-  if (nd) await authService.dangXuat(nd.maTK);
+  if (nd) {
+    await posService.huyDonKhiDangXuat(nd.maTK); // UC1.2: đơn nháp bị hủy, giải phóng tạm giữ
+    await authService.dangXuat(nd.maTK);
+  }
   await xoaPhien();
   redirect("/dang-nhap");
 }

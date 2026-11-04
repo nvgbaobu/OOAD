@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
-import { dangXuat } from "@/app/actions/auth";
+import { posService } from "@/lib/services/posService";
+import NutDangXuat from "./NutDangXuat";
 
 // Khung chung cho các trang sau đăng nhập. Mỗi page vẫn tự gọi yeuCauDangNhap(<vai trò>) để kiểm quyền.
 export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
   const nd = await yeuCauDangNhap();
+  const soSachDangLap = await posService.soSachDonDangLap(nd.maTK);
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -18,9 +20,7 @@ export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
           <span>
             {nd.hoTen} <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{nd.vaiTro === "ADMIN" ? "Quản trị" : "Nhân viên"}</span>
           </span>
-          <form action={dangXuat}>
-            <button type="submit" className="rounded border px-2 py-1 hover:bg-gray-50">Đăng xuất</button>
-          </form>
+          <NutDangXuat soSachDangLap={soSachDangLap} />
         </div>
       </header>
       <main className="flex-1 bg-gray-50 p-4 print:bg-white print:p-0">{children}</main>
