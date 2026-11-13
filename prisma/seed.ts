@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import type { Sach, NhaCungCap } from "../lib/generated/prisma/client";
 import { tinhTienHoaDon } from "../lib/services/tinhTienHoaDon";
+import { SACH_FAHASA } from "./du-lieu/sachFahasa";
 
 const MAT_KHAU_MAC_DINH = "123456";
 
@@ -129,6 +130,12 @@ async function main() {
       }),
     );
   }
+  // ~100 sách ngoại văn bán chạy lấy từ Fahasa (xem prisma/du-lieu/sachFahasa.ts)
+  await prisma.sach.createMany({
+    data: SACH_FAHASA.map(([isbn, tenSach, tacGia, tl, giaNhap, giaBan, viTriKe, soLuongTon]) => ({
+      isbn, tenSach, tacGia, maTL: theLoai[tl], giaNhap, giaBan, viTriKe, soLuongTon,
+    })),
+  });
   // 1 cuốn ngừng kinh doanh (ẩn khỏi POS)
   await prisma.sach.update({ where: { maSach: sach[29].maSach }, data: { trangThai: "NGUNG_KINH_DOANH" } });
 

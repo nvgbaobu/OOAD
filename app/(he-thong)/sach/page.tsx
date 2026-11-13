@@ -38,7 +38,7 @@ export default async function TrangSach({ searchParams }: PageProps<"/sach">) {
         <h1 className="mr-auto text-lg font-semibold">Quản lý sách <span className="text-sm font-normal text-gray-500">({tong} đầu sách)</span></h1>
         {laAdmin && (
           <>
-            <Link href="/sach/the-loai" className="rounded border bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Thể loại &amp; VAT</Link>
+            <Link href="/sach/the-loai" className="rounded border bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Thể loại</Link>
             <Link href="/sach/them" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">+ Thêm sách</Link>
           </>
         )}
