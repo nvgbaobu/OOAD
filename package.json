@@ -16,7 +16,8 @@
     "test:khuyen-mai": "tsx scripts/kiem-thu-khuyen-mai.ts && prisma db seed",
     "test:bao-cao": "tsx scripts/kiem-thu-bao-cao.ts && prisma db seed",
     "test:cai-dat": "tsx scripts/kiem-thu-cai-dat.ts && prisma db seed",
-    "test": "prisma db seed && npm run test:pos && npm run test:sach && npm run test:kho && npm run test:nhap && npm run test:hoa-don && npm run test:khach-hang && npm run test:khuyen-mai && npm run test:bao-cao && npm run test:cai-dat"
+    "test:quen-mat-khau": "tsx scripts/kiem-thu-quen-mat-khau.ts && prisma db seed",
+    "test": "prisma db seed && npm run test:pos && npm run test:sach && npm run test:kho && npm run test:nhap && npm run test:hoa-don && npm run test:khach-hang && npm run test:khuyen-mai && npm run test:bao-cao && npm run test:cai-dat && npm run test:quen-mat-khau"
   },
   "dependencies": {
     "@prisma/adapter-mssql": "^7.10.1",

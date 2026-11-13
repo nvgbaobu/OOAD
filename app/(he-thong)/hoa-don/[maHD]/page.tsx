@@ -63,7 +63,7 @@ export default async function TrangHoaDon({ params }: PageProps<"/hoa-don/[maHD]
           <tbody>
             {hd.chiTiets.map((c) => (
               <tr key={c.maSach} className="border-t align-top">
-                <td className="py-1">{c.sach.tenSach}<span className="text-xs text-gray-500"> (VAT {Number(c.thueSuatVAT)}%)</span></td>
+                <td className="py-1">{c.sach.tenSach}</td>
                 <td className="text-right">{c.soLuong}</td>
                 <td className="text-right">{tienVND(c.donGiaBan)}</td>
                 <td className="text-right">{tienVND(c.thanhTien)}</td>
