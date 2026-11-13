@@ -13,7 +13,7 @@ export default async function TrangThemSach() {
       <h1 className="mb-1 text-lg font-semibold">Thêm sách</h1>
       <p className="mb-4 text-sm text-gray-500">Sách mới có tồn kho = 0. Nhập hàng qua phiếu nhập (cần Admin duyệt).</p>
       <FormSach
-        theLoais={theLoais.map((t) => ({ maTL: t.maTL, tenTL: t.tenTL, thueSuatVAT: Number(t.thueSuatVAT) }))}
+        theLoais={theLoais.map((t) => ({ maTL: t.maTL, tenTL: t.tenTL }))}
         banDau={{ dinhMucToiThieu: "5" }}
       />
     </div>

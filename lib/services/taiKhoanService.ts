@@ -16,7 +16,7 @@ export type FormTaiKhoan = { soDienThoai: string; hoTen: string; email: string; 
 
 const chuanHoa = (s: string | undefined) => (s ?? "").trim().replace(/\s+/g, " ");
 
-function kiemTraMatKhau(matKhau: string, truong: string, loi: Record<string, string>) {
+export function kiemTraMatKhau(matKhau: string, truong: string, loi: Record<string, string>) {
   if (matKhau.length < 6) loi[truong] = "Mật khẩu tối thiểu 6 ký tự";
   else if (Buffer.byteLength(matKhau) > 72) loi[truong] = "Mật khẩu tối đa 72 ký tự";
 }

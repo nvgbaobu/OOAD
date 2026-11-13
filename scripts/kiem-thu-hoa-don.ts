@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { LoiNghiepVu } from "../lib/loi";
 import { posService } from "../lib/services/posService";
 import { hoaDonService } from "../lib/services/hoaDonService";
+import { tinhDiemCong } from "../lib/services/tinhTienHoaDon";
 
 let loi = 0;
 const kiemTra = (dk: boolean, moTa: string) => { console.log(dk ? "  ✔" : "  ✘", moTa); if (!dk) loi++; };
@@ -29,7 +30,8 @@ async function main() {
   const maHD = await posService.thanhToan(an.maTK, "QUET_THE", null);
   const hd = (await prisma.hoaDon.findUniqueOrThrow({ where: { maHD } }));
   const mai1 = await kh(mai0.soDienThoai);
-  kiemTra(mai1.diemHienTai === 120 - 50 + hd.diemCong && mai1.diemTichLuy === 320 + hd.diemCong, `điểm: 120 − 50 + ${hd.diemCong} = ${mai1.diemHienTai}`);
+  const diemCong1 = tinhDiemCong(Number(hd.tongTien), 10000);
+  kiemTra(mai1.diemHienTai === 120 - 50 + diemCong1 && mai1.diemTichLuy === 320 + diemCong1, `điểm: 120 − 50 + ${diemCong1} = ${mai1.diemHienTai}`);
   kiemTra(mai1.hangThanhVien.tenHang === "Bạc", `lên hạng ${mai0.hangThanhVien.tenHang} → ${mai1.hangThanhVien.tenHang}`);
   kiemTra((await sach(rungNaUy.isbn)).soLuongTon === 0 && (await ma("GIAM10")).daSuDung === giam10.daSuDung + 1, "trừ kho 15, mã +1 lượt");
 
@@ -74,9 +76,9 @@ async function main() {
   await prisma.khachHang.update({ where: { maKH: khoa0.maKH }, data: { diemHienTai: 10 } }); // giả lập đã đổi bớt điểm ở đơn khác
   await hoaDonService.huy(maHD2, "Nhập sai", admin.maTK);
   const khoa1 = await kh(khoa0.soDienThoai);
-  kiemTra(khoa1.diemHienTai === 0 && khoa1.diemTichLuy === 30, `điểm hiện tại 10 − ${hd2.diemCong} → 0 (không âm), tích lũy về 30`);
+  kiemTra(khoa1.diemHienTai === 0 && khoa1.diemTichLuy === 30, `điểm hiện tại 10 − ${tinhDiemCong(Number(hd2.tongTien), 10000)} → 0 (không âm), tích lũy về 30`);
   const nk2 = await prisma.nhatKyHeThong.findFirstOrThrow({ where: { module: "HOA_DON", hanhDong: "HUY" }, orderBy: { maLog: "desc" } });
-  kiemTra(!!nk2.noiDung?.includes(`hụt ${hd2.diemCong - 10} điểm`), "nhật ký ghi số điểm bị hụt");
+  kiemTra(!!nk2.noiDung?.includes(`hụt ${tinhDiemCong(Number(hd2.tongTien), 10000) - 10} điểm`), "nhật ký ghi số điểm bị hụt");
 
   console.log("5. Không hủy được đơn chưa thanh toán");
   await posService.themSach(an.maTK, dacNhanTam.maSach, 1);

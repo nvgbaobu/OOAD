@@ -3,7 +3,7 @@
 // - Tích điểm: tyLeQuyDoiDiem (số tiền / 1 điểm) 1.000–1.000.000đ; giaTriMotDiem (1 điểm = ? đồng) phải NHỎ HƠN
 //   tyLeQuyDoiDiem (nếu không khách được hoàn ≥ 100% tiền bằng điểm). Phải bật ít nhất 1 phương thức thanh toán.
 // - Sao lưu: BACKUP DATABASE ra file .bak trong thư mục dữ liệu của SQL Server (volume Docker mssql_data), ghi BanSaoLuu.
-//   Phục hồi làm thủ công bằng sqlcmd (RESTORE DATABASE … WITH REPLACE) – không làm trên giao diện vì phải ngắt mọi kết nối.
+//   Phục hồi làm thủ công bằng sqlcmd (xem README, mục "Sao lưu & phục hồi CSDL") – không làm trên giao diện vì phải ngắt mọi kết nối.
 import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";

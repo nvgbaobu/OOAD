@@ -134,7 +134,7 @@ function tinhTienDon(don: DonDangLap, { cauHinh, combos }: BoiCanh, ghiDe?: { ma
   return tinhTienHoaDon({
     dong: don.chiTiets.map((c) => ({
       maSach: c.maSach, soLuong: c.soLuong, donGia: Number(c.donGiaBan),
-      thanhTien: Number(c.thanhTien), thueSuatVAT: Number(c.thueSuatVAT),
+      thanhTien: Number(c.thanhTien),
     })),
     combos,
     phanTramUuDaiHang: kh ? Number(kh.hangThanhVien.phanTramUuDai) : 0,
@@ -215,11 +215,11 @@ export const posService = {
           data: { soLuong: soLuongMoi, thanhTien: Number(dong.donGiaBan) * soLuongMoi },
         });
       } else {
-        // Snapshot giá bán + thuế suất tại thời điểm thêm vào đơn
+        // Snapshot giá bán tại thời điểm thêm vào đơn
         await tx.chiTietHoaDon.create({
           data: {
             maHD: don.maHD, maSach, soLuong,
-            donGiaBan: sach.giaBan, thanhTien: Number(sach.giaBan) * soLuong, thueSuatVAT: sach.theLoai.thueSuatVAT,
+            donGiaBan: sach.giaBan, thanhTien: Number(sach.giaBan) * soLuong,
           },
         });
       }
@@ -415,7 +415,7 @@ export const posService = {
           thoiGianCapNhat: new Date(),
           tamTinh: tien.tamTinh, giamCombo: tien.giamCombo, giamHangThe: tien.giamHang, giamMaGiamGia: tien.giamMa,
           giamDiem: tien.giamDiem, thueVAT: tien.thueVAT, tongTien: tien.tongTien,
-          diemCong: tien.diemCong, phuongThucTT,
+          phuongThucTT,
           tienKhachDua: phuongThucTT === "TIEN_MAT" ? tienKhachDua : tien.tongTien,
         },
       });

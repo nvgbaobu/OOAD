@@ -56,11 +56,10 @@ model MaOTP {
 
 // ───────────────────────── Sách ─────────────────────────
 
-/// 3. Thể loại sách. thueSuatVAT (%): 0 = sách chính trị/giáo dục/văn hóa (không chịu thuế GTGT), 5 = sách còn lại
+/// 3. Thể loại sách
 model TheLoai {
-  maTL        Int     @id @default(autoincrement())
-  tenTL       String  @unique @db.NVarChar(100)
-  thueSuatVAT Decimal @default(5) @db.Decimal(5, 2)
+  maTL  Int    @id @default(autoincrement())
+  tenTL String @unique @db.NVarChar(100)
 
   sachs Sach[]
 
@@ -178,7 +177,7 @@ model ChiTietCombo {
 
 /// 10. Hóa đơn. trangThai: DANG_LAP | DA_THANH_TOAN | DA_HUY; phuongThucTT: TIEN_MAT | QUET_THE | MA_QR
 /// Các khoản giam*, thueVAT là SỐ TIỀN. Thứ tự: tamTinh → giamCombo → giamHangThe → giamMaGiamGia → giamDiem → + thueVAT = tongTien
-/// (cách tính: lib/services/tinhTienHoaDon.ts). diemCong = điểm đã cộng cho khách (để trừ lại khi hủy).
+/// (cách tính: lib/services/tinhTienHoaDon.ts). VAT một mức THUE_SUAT_VAT; điểm cộng = floor(tongTien / tyLeQuyDoiDiem).
 /// thoiGianCapNhat = lần sửa đơn gần nhất – đơn DANG_LAP quá 30 phút không sửa bị tự hủy.
 model HoaDon {
   maHD            Int      @id @default(autoincrement())
@@ -195,7 +194,6 @@ model HoaDon {
   giamMaGiamGia   Decimal  @default(0) @db.Decimal(12, 2)
   giamDiem        Decimal  @default(0) @db.Decimal(12, 2)
   diemSuDung      Int      @default(0)
-  diemCong        Int      @default(0)
   tongTien        Decimal  @default(0) @db.Decimal(12, 2)
   phuongThucTT    String?  @db.NVarChar(10)
   tienKhachDua    Decimal? @db.Decimal(12, 2)
@@ -213,14 +211,13 @@ model HoaDon {
   @@map("HoaDon")
 }
 
-/// 11. Chi tiết hóa đơn. donGiaBan, thueSuatVAT = snapshot lúc bán (thueSuatVAT lấy từ TheLoai)
+/// 11. Chi tiết hóa đơn. donGiaBan = snapshot giá lúc bán
 model ChiTietHoaDon {
   maHD        Int
   maSach      Int
   soLuong     Int
   donGiaBan   Decimal @db.Decimal(12, 2)
   thanhTien   Decimal @db.Decimal(12, 2)
-  thueSuatVAT Decimal @default(0) @db.Decimal(5, 2)
 
   hoaDon HoaDon @relation(fields: [maHD], references: [maHD], onDelete: Cascade, onUpdate: NoAction)
   sach   Sach   @relation(fields: [maSach], references: [maSach], onDelete: NoAction, onUpdate: NoAction)

@@ -7,8 +7,7 @@ export const theLoaiRepository = {
   timTheoMa: (maTL: number) => prisma.theLoai.findUnique({ where: { maTL } }),
   timTheoTen: (tenTL: string) => prisma.theLoai.findUnique({ where: { tenTL } }),
   demSach: (maTL: number) => prisma.sach.count({ where: { maTL } }),
-  tao: (tenTL: string, thueSuatVAT: number) => prisma.theLoai.create({ data: { tenTL, thueSuatVAT } }),
-  capNhat: (maTL: number, tenTL: string, thueSuatVAT: number) =>
-    prisma.theLoai.update({ where: { maTL }, data: { tenTL, thueSuatVAT } }),
+  tao: (tenTL: string) => prisma.theLoai.create({ data: { tenTL } }),
+  capNhat: (maTL: number, tenTL: string) => prisma.theLoai.update({ where: { maTL }, data: { tenTL } }),
   xoa: (maTL: number) => prisma.theLoai.delete({ where: { maTL } }),
 };

@@ -53,10 +53,12 @@ async function main() {
   await posService.huyDon(2);
 
   console.log("4. Danh sách + lọc");
+  const tongSach = await prisma.sach.count();
+  const soTrang = Math.ceil(tongSach / 15);
   const tatCa = await sachService.danhSach({}, 1);
-  kiemTra(tatCa.tong === 31 && tatCa.soTrang === 3 && tatCa.sachs.length === 15, `31 sách, 3 trang (${tatCa.tong}, ${tatCa.soTrang})`);
+  kiemTra(tatCa.tong === tongSach && tatCa.soTrang === soTrang && tatCa.sachs.length === 15, `${tongSach} sách, ${soTrang} trang (${tatCa.tong}, ${tatCa.soTrang})`);
   const trangCuoi = await sachService.danhSach({}, 99);
-  kiemTra(trangCuoi.trang === 3 && trangCuoi.sachs.length === 1, "trang vượt quá → về trang cuối");
+  kiemTra(trangCuoi.trang === soTrang && trangCuoi.sachs.length === tongSach - (soTrang - 1) * 15, "trang vượt quá → về trang cuối");
   const sapHet = await sachService.danhSach({ sapHet: true }, 1);
   kiemTra(sapHet.sachs.every((s) => s.soLuongTon <= s.dinhMucToiThieu) && sapHet.tong >= 5, `lọc sắp hết: ${sapHet.tong} sách`);
   const ngung = await sachService.danhSach({ trangThai: "NGUNG_KINH_DOANH" }, 1);
@@ -64,12 +66,11 @@ async function main() {
   kiemTra((await sachService.danhSach({ tuKhoa: "harari" }, 1)).tong === 1, "tìm theo tác giả (không phân biệt hoa thường)");
 
   console.log("5. Thể loại");
-  await phaiLoi(() => sachService.luuTheLoai(null, "Kinh tế", "5", admin), "tenTL", "đã tồn tại");
-  await phaiLoi(() => sachService.luuTheLoai(null, "Truyện tranh", "10", admin), "thueSuatVAT", "0% hoặc 5%");
-  const tl = await sachService.luuTheLoai(null, "  Truyện   tranh ", "5", admin);
-  kiemTra(tl.tenTL === "Truyện tranh" && Number(tl.thueSuatVAT) === 5, "thêm thể loại");
-  await sachService.luuTheLoai(tl.maTL, "Truyện tranh", "0", admin);
-  kiemTra(Number((await prisma.theLoai.findUniqueOrThrow({ where: { maTL: tl.maTL } })).thueSuatVAT) === 0, "sửa VAT 5% → 0%");
+  await phaiLoi(() => sachService.luuTheLoai(null, "Kinh tế", admin), "tenTL", "đã tồn tại");
+  const tl = await sachService.luuTheLoai(null, "  Truyện   tranh ", admin);
+  kiemTra(tl.tenTL === "Truyện tranh", "thêm thể loại (chuẩn hóa khoảng trắng)");
+  await sachService.luuTheLoai(tl.maTL, "Truyện tranh Nhật", admin);
+  kiemTra((await prisma.theLoai.findUniqueOrThrow({ where: { maTL: tl.maTL } })).tenTL === "Truyện tranh Nhật", "sửa tên thể loại");
   await phaiLoi(() => sachService.xoaTheLoai(kyNang.maTL, admin), null, "đang có");
   await sachService.xoaTheLoai(tl.maTL, admin);
   kiemTra(!(await prisma.theLoai.findUnique({ where: { maTL: tl.maTL } })), "xóa thể loại chưa có sách");

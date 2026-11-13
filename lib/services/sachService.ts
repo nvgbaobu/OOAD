@@ -10,7 +10,6 @@ import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 
 export const SO_SACH_MOI_TRANG = 15;
 export const TRANG_THAI_SACH = { DANG_BAN: "Đang bán", NGUNG_KINH_DOANH: "Ngừng kinh doanh" } as const;
-export const THUE_SUAT_HOP_LE = [0, 5]; // 0% sách chính trị/giáo dục/văn hóa, 5% sách còn lại
 
 /** Dữ liệu thô từ form (chuỗi). */
 export type FormSach = Record<
@@ -110,9 +109,8 @@ export const sachService = {
   danhSachTheLoai: () => theLoaiRepository.tatCa(),
   danhSachTheLoaiKemSoSach: () => theLoaiRepository.tatCaKemSoSach(),
 
-  async luuTheLoai(maTL: number | null, tenTLTho: string, thueSuatTho: string, maTK: number) {
+  async luuTheLoai(maTL: number | null, tenTLTho: string, maTK: number) {
     const tenTL = chuanHoa(tenTLTho);
-    const thueSuatVAT = Number(thueSuatTho);
     const loi: Record<string, string> = {};
     if (!tenTL) loi.tenTL = "Nhập tên thể loại";
     else if (tenTL.length > 100) loi.tenTL = "Tối đa 100 ký tự";
@@ -120,21 +118,17 @@ export const sachService = {
       const trung = await theLoaiRepository.timTheoTen(tenTL);
       if (trung && trung.maTL !== maTL) loi.tenTL = "Tên thể loại đã tồn tại";
     }
-    if (!THUE_SUAT_HOP_LE.includes(thueSuatVAT)) loi.thueSuatVAT = "Thuế suất 0% hoặc 5%";
     if (Object.keys(loi).length) throw new LoiNghiepVu(Object.values(loi).join(". "), loi);
 
     if (maTL === null) {
-      const tl = await theLoaiRepository.tao(tenTL, thueSuatVAT);
-      await nhatKyRepository.ghi({ maTK, module: "THE_LOAI", hanhDong: "THEM", noiDung: `${tenTL} (VAT ${thueSuatVAT}%)` });
+      const tl = await theLoaiRepository.tao(tenTL);
+      await nhatKyRepository.ghi({ maTK, module: "THE_LOAI", hanhDong: "THEM", noiDung: tenTL });
       return tl;
     }
     const cu = await theLoaiRepository.timTheoMa(maTL);
     if (!cu) throw new LoiNghiepVu("Thể loại không tồn tại");
-    const tl = await theLoaiRepository.capNhat(maTL, tenTL, thueSuatVAT);
-    await nhatKyRepository.ghi({
-      maTK, module: "THE_LOAI", hanhDong: "SUA",
-      noiDung: `${cu.tenTL} → ${tenTL}, VAT ${Number(cu.thueSuatVAT)}% → ${thueSuatVAT}%`,
-    });
+    const tl = await theLoaiRepository.capNhat(maTL, tenTL);
+    await nhatKyRepository.ghi({ maTK, module: "THE_LOAI", hanhDong: "SUA", noiDung: `${cu.tenTL} → ${tenTL}` });
     return tl;
   },
 

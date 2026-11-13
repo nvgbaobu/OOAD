@@ -5,6 +5,8 @@ import { authService } from "@/lib/services/authService";
 import { taoPhien, xoaPhien } from "@/lib/auth/session";
 import { layNguoiDung, trangChuTheoVaiTro } from "@/lib/auth/dal";
 import { posService } from "@/lib/services/posService";
+import { matKhauService } from "@/lib/services/matKhauService";
+import { batLoiNghiepVu, type KetQuaForm } from "@/lib/ketQuaForm";
 
 export type TrangThaiFormDangNhap = {
   loi?: string;
@@ -37,4 +39,40 @@ export async function dangXuat() {
   }
   await xoaPhien();
   redirect("/dang-nhap");
+}
+
+// ───────── UC1.4 Khôi phục mật khẩu bằng OTP (không cần đăng nhập) ─────────
+
+/** Kết quả từng bước quên mật khẩu. ok = bước thành công; sms = OTP giả lập để hiển thị. */
+export type KetQuaQuenMatKhau =
+  | (NonNullable<KetQuaForm> & { ok?: boolean; soDienThoai?: string; maCode?: string; sms?: { maCode: string; hetHanLuc: string } })
+  | undefined;
+
+const chuoi = (fd: FormData, k: string) => String(fd.get(k) ?? "");
+
+/** Bước 1 (và "Gửi lại mã"): cấp OTP mới. */
+export async function yeuCauOTP(_: KetQuaQuenMatKhau, fd: FormData): Promise<KetQuaQuenMatKhau> {
+  const soDienThoai = chuoi(fd, "soDienThoai");
+  let sms: { maCode: string; hetHanLuc: string; soDienThoai: string } | undefined;
+  const kq = await batLoiNghiepVu(async () => {
+    const r = await matKhauService.yeuCauOTP(soDienThoai);
+    sms = { maCode: r.maCode, hetHanLuc: r.hetHanLuc.toISOString(), soDienThoai: r.soDienThoai };
+  }, { soDienThoai });
+  if (kq || !sms) return kq;
+  return { ok: true, soDienThoai: sms.soDienThoai, sms: { maCode: sms.maCode, hetHanLuc: sms.hetHanLuc } };
+}
+
+/** Bước 2: xác nhận OTP. */
+export async function xacNhanOTP(_: KetQuaQuenMatKhau, fd: FormData): Promise<KetQuaQuenMatKhau> {
+  const soDienThoai = chuoi(fd, "soDienThoai");
+  const maCode = chuoi(fd, "maCode").trim();
+  const kq = await batLoiNghiepVu(() => matKhauService.xacNhanOTP(soDienThoai, maCode), { maCode });
+  return kq ?? { ok: true, soDienThoai, maCode };
+}
+
+/** Bước 3: đặt mật khẩu mới (kiểm tra lại OTP). Không trả mật khẩu về form. */
+export async function datLaiMatKhauOTP(_: KetQuaQuenMatKhau, fd: FormData): Promise<KetQuaQuenMatKhau> {
+  const kq = await batLoiNghiepVu(() =>
+    matKhauService.datLaiMatKhau(chuoi(fd, "soDienThoai"), chuoi(fd, "maCode"), chuoi(fd, "matKhauMoi"), chuoi(fd, "nhapLai")));
+  return kq ?? { ok: true };
 }

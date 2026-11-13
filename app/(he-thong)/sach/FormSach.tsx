@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { luuSach } from "@/app/actions/sach";
 
-type TheLoai = { maTL: number; tenTL: string; thueSuatVAT: number };
+type TheLoai = { maTL: number; tenTL: string };
 
 const oNhap = "w-full rounded border px-2 py-1.5 text-sm aria-[invalid=true]:border-red-500";
 
@@ -38,7 +38,7 @@ export default function FormSach({ theLoais, banDau, maSach }: { theLoais: TheLo
           <select name="maTL" defaultValue={gt.maTL ?? ""} aria-invalid={!!loi.maTL} className={oNhap}>
             <option value="">— Chọn thể loại —</option>
             {theLoais.map((t) => (
-              <option key={t.maTL} value={t.maTL}>{t.tenTL} (VAT {t.thueSuatVAT}%)</option>
+              <option key={t.maTL} value={t.maTL}>{t.tenTL}</option>
             ))}
           </select>
           {loi.maTL && <span className="mt-0.5 block text-xs text-red-600">{loi.maTL}</span>}

@@ -7,6 +7,8 @@ import { LoiNghiepVu } from "@/lib/loi";
 import type { Db } from "@/lib/db";
 import { khachHangRepository, type LocKhachHang } from "@/lib/repositories/khachHangRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
+import { tinhDiemCong } from "@/lib/services/tinhTienHoaDon";
 
 export class LoiKhachHang extends LoiNghiepVu {}
 
@@ -110,12 +112,14 @@ export const khachHangService = {
       khachHangRepository.thongKeMua([maKH]),
       prisma.hoaDon.findMany({
         where: { maKH, phuongThucTT: { not: null } }, // đã thanh toán (kể cả đã hủy sau đó)
-        select: { maHD: true, maTK: true, thoiGianTao: true, thoiGianCapNhat: true, trangThai: true, tongTien: true, diemCong: true, diemSuDung: true, lyDoHuy: true },
+        select: { maHD: true, maTK: true, thoiGianTao: true, thoiGianCapNhat: true, trangThai: true, tongTien: true, diemSuDung: true, lyDoHuy: true },
         orderBy: { maHD: "desc" }, take: 50,
       }),
       prisma.hangThanhVien.findFirst({ where: { diemToiThieu: { gt: kh.diemTichLuy } }, orderBy: { diemToiThieu: "asc" } }),
     ]);
-    return { kh, ...(thongKe.get(maKH) ?? { soHoaDon: 0, tongChiTieu: 0 }), hoaDons, hangKeTiep };
+    const { tyLeQuyDoiDiem } = await cauHinhRepository.lay();
+    const hoaDonsKemDiem = hoaDons.map((h) => ({ ...h, diemCong: tinhDiemCong(Number(h.tongTien), Number(tyLeQuyDoiDiem)) }));
+    return { kh, ...(thongKe.get(maKH) ?? { soHoaDon: 0, tongChiTieu: 0 }), hoaDons: hoaDonsKemDiem, hangKeTiep };
   },
 
   // ───────── Hạng thành viên (Admin) ─────────

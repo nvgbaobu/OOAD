@@ -6,11 +6,18 @@
 //   - Ưu đãi hạng tính trên số tiền sau combo.
 //   - Mã giảm giá: điều kiện đơn tối thiểu xét trên số tiền SAU COMBO; % tính trên số tiền sau ưu đãi hạng.
 //   - Điểm: 1 điểm = giaTriMotDiem, không vượt số tiền còn lại.
-//   - VAT tính SAU giảm: giảm combo phân bổ cho các dòng thuộc combo, các khoản giảm còn lại phân bổ
-//     theo tỷ lệ tiền từng dòng; mỗi dòng chịu thuế suất của thể loại sách (0% hoặc 5%).
+//   - VAT tính SAU giảm, một mức thuế suất chung THUE_SUAT_VAT cho cả hóa đơn.
+//   - Điểm cộng = floor(tongTien / tyLeQuyDoiDiem) – không lưu trong CSDL, suy ra bằng tinhDiemCong().
 // Tiền là VNĐ, làm tròn đến đồng. Hạn dùng / số lượt của mã giảm giá kiểm tra ở service gọi hàm này.
 
-export type DongTinhTien = { maSach?: number; soLuong?: number; donGia?: number; thanhTien: number; thueSuatVAT: number };
+/** Thuế suất VAT (%) áp cho mọi hóa đơn. */
+export const THUE_SUAT_VAT = 5;
+
+/** Điểm khách được cộng cho một hóa đơn (dùng khi thanh toán và khi hủy để trừ lại). */
+export const tinhDiemCong = (tongTien: number, tyLeQuyDoiDiem: number) =>
+  tyLeQuyDoiDiem > 0 ? Math.floor(tongTien / tyLeQuyDoiDiem) : 0;
+
+export type DongTinhTien = { maSach?: number; soLuong?: number; donGia?: number; thanhTien: number };
 
 export type ComboTinhTien = {
   tenCombo: string;
@@ -54,7 +61,7 @@ export type KetQuaTinhTien = {
 
 export class LoiTinhTien extends Error {}
 
-/** Áp combo: trả về tổng giảm, danh sách combo áp dụng và phần giảm phân bổ cho từng dòng (theo chỉ số dòng). */
+/** Áp combo: trả về tổng giảm và danh sách combo áp dụng. */
 function apCombo(dong: DongTinhTien[], combos: ComboTinhTien[]) {
   const conLai = new Map<number, number>(); // maSach → số cuốn chưa thuộc combo nào
   const viTri = new Map<number, number>(); // maSach → chỉ số dòng
@@ -75,7 +82,6 @@ function apCombo(dong: DongTinhTien[], combos: ComboTinhTien[]) {
     .filter((x) => x.giaLeBo > x.c.giaCombo)
     .sort((a, b) => b.giaLeBo - b.c.giaCombo - (a.giaLeBo - a.c.giaCombo));
 
-  const phanBo = new Array<number>(dong.length).fill(0);
   const combosApDung: ComboApDung[] = [];
   for (const { c, giaLeBo } of ung) {
     const soBo = Math.min(...c.sach.map((s) => Math.floor((conLai.get(s.maSach) ?? 0) / s.soLuong)));
@@ -83,18 +89,17 @@ function apCombo(dong: DongTinhTien[], combos: ComboTinhTien[]) {
     const giamMotBo = giaLeBo - c.giaCombo;
     for (const s of c.sach) {
       conLai.set(s.maSach, conLai.get(s.maSach)! - s.soLuong * soBo);
-      phanBo[viTri.get(s.maSach)!] += ((giaLe(s.maSach) * s.soLuong) / giaLeBo) * giamMotBo * soBo;
     }
     combosApDung.push({ tenCombo: c.tenCombo, soBo, giam: giamMotBo * soBo });
   }
-  return { giamCombo: combosApDung.reduce((t, c) => t + c.giam, 0), combosApDung, phanBo };
+  return { giamCombo: combosApDung.reduce((t, c) => t + c.giam, 0), combosApDung };
 }
 
 export function tinhTienHoaDon(v: DauVaoTinhTien): KetQuaTinhTien {
   const tamTinh = v.dong.reduce((s, d) => s + d.thanhTien, 0);
 
   // 1. Combo
-  const { giamCombo, combosApDung, phanBo } = apCombo(v.dong, v.combos ?? []);
+  const { giamCombo, combosApDung } = apCombo(v.dong, v.combos ?? []);
   const sauCombo = tamTinh - giamCombo;
 
   // 2. Ưu đãi hạng thẻ
@@ -123,14 +128,11 @@ export function tinhTienHoaDon(v: DauVaoTinhTien): KetQuaTinhTien {
   }
   const tienTruocThue = sauMa - giamDiem;
 
-  // 5. VAT sau giảm, phân bổ theo dòng
-  const heSo = sauCombo > 0 ? tienTruocThue / sauCombo : 0;
-  const thueVAT = Math.round(
-    v.dong.reduce((s, d, i) => s + ((d.thanhTien - phanBo[i]) * heSo * d.thueSuatVAT) / 100, 0),
-  );
+  // 5. VAT sau giảm, một mức chung
+  const thueVAT = Math.round((tienTruocThue * THUE_SUAT_VAT) / 100);
 
   const tongTien = tienTruocThue + thueVAT;
-  const diemCong = v.coKhachHang ? Math.floor(tongTien / v.tyLeQuyDoiDiem) : 0;
+  const diemCong = v.coKhachHang ? tinhDiemCong(tongTien, v.tyLeQuyDoiDiem) : 0;
 
   return {
     tamTinh, giamCombo, giamHang, giamMa, giamDiem, tienGiam: giamCombo + giamHang + giamMa + giamDiem,

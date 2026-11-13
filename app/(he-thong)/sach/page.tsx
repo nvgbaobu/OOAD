@@ -38,7 +38,7 @@ export default async function TrangSach({ searchParams }: PageProps<"/sach">) {
         <h1 className="mr-auto text-lg font-semibold">Quản lý sách <span className="text-sm font-normal text-gray-500">({tong} đầu sách)</span></h1>
         {laAdmin && (
           <>
-            <Link href="/sach/the-loai" className="rounded border bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Thể loại &amp; VAT</Link>
+            <Link href="/sach/the-loai" className="rounded border bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Thể loại</Link>
             <Link href="/sach/them" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">+ Thêm sách</Link>
           </>
         )}
@@ -88,7 +88,7 @@ export default async function TrangSach({ searchParams }: PageProps<"/sach">) {
                     <div className="font-medium">{s.tenSach}</div>
                     <div className="text-xs text-gray-500">{s.tacGia} · ISBN {s.isbn}{s.namXB ? ` · ${s.namXB}` : ""}</div>
                   </td>
-                  <td className="text-xs">{s.theLoai.tenTL}<br /><span className="text-gray-500">VAT {Number(s.theLoai.thueSuatVAT)}%</span></td>
+                  <td className="text-xs">{s.theLoai.tenTL}</td>
                   <td className="text-right">{tienVND(s.giaNhap)}</td>
                   <td className="text-right">{tienVND(s.giaBan)}</td>
                   <td className={`text-right ${sapHet ? "font-semibold text-orange-600" : ""}`} title={sapHet ? `Dưới định mức ${s.dinhMucToiThieu}` : undefined}>

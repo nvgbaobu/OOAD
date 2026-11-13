@@ -13,8 +13,8 @@ async function phaiLoi(fn: () => Promise<unknown>, chua: string) {
 
 async function main() {
   const maTK = 2; // staff Lê Hoàng An
-  const sapiens = await sach("9786042000021"); // Lịch sử 0%, 219.000
-  const dacNhanTam = await sach("9786042000013"); // Kỹ năng 5%, 88.000
+  const sapiens = await sach("9786042000021"); // 219.000
+  const dacNhanTam = await sach("9786042000013"); // 88.000
   const hoangTuBe = await sach("9786042000018"); // tồn 2
   const englishGrammar = await sach("9786042000030"); // ngừng kinh doanh
 
@@ -40,7 +40,8 @@ async function main() {
   await posService.datDiemSuDung(maTK, 50);
   const { tien } = await posService.layGioHang(maTK);
   console.log("  ", tien);
-  kiemTra(tien!.tongTien === 275964, "tổng 275.964 (khớp ví dụ đã tính tay)");
+  // 395.000 − hạng 10% 39.500 − mã 10% 35.550 − 50 điểm 50.000 = 269.950; VAT 5% = 13.498 → 283.448
+  kiemTra(tien!.tongTien === 283448, "tổng 283.448 (khớp ví dụ đã tính tay)");
 
   console.log("3. Thanh toán");
   await phaiLoi(() => posService.thanhToan(maTK, "TIEN_MAT", 200000), "chưa đủ");
@@ -48,12 +49,12 @@ async function main() {
   const maGGTruoc = await prisma.maGiamGia.findUniqueOrThrow({ where: { maCode: "GIAM10" } });
   const maHD = await posService.thanhToan(maTK, "TIEN_MAT", 300000);
   const hd = await prisma.hoaDon.findUniqueOrThrow({ where: { maHD } });
-  kiemTra(hd.trangThai === "DA_THANH_TOAN" && Number(hd.tongTien) === 275964 && hd.diemCong === 27, "HĐ đã thanh toán, điểm cộng 27");
+  kiemTra(hd.trangThai === "DA_THANH_TOAN" && Number(hd.tongTien) === 283448, "HĐ đã thanh toán");
   kiemTra(Number(hd.giamHangThe) === 39500 && Number(hd.giamMaGiamGia) === 35550 && Number(hd.giamDiem) === 50000 && Number(hd.giamCombo) === 0, "HĐ lưu tách 4 khoản giảm");
   const s1 = await sach(sapiens.isbn);
   kiemTra(s1.soLuongTon === sapiens.soLuongTon - 1 && s1.soLuongTamGiu === 0, "Sapiens: tồn −1, tạm giữ về 0");
   const khSau = await prisma.khachHang.findUniqueOrThrow({ where: { soDienThoai: "0933333333" } });
-  kiemTra(khSau.diemHienTai === khTruoc.diemHienTai - 50 + 27 && khSau.diemTichLuy === khTruoc.diemTichLuy + 27, "điểm KH: −50 +27");
+  kiemTra(khSau.diemHienTai === khTruoc.diemHienTai - 50 + 28 && khSau.diemTichLuy === khTruoc.diemTichLuy + 28, "điểm KH: −50 +28");
   kiemTra((await prisma.maGiamGia.findUniqueOrThrow({ where: { maCode: "GIAM10" } })).daSuDung === maGGTruoc.daSuDung + 1, "mã GIAM10 +1 lượt");
   kiemTra((await posService.layGioHang(maTK)).don === null, "không còn đơn đang lập");
 
