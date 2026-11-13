@@ -4,13 +4,19 @@ import { NextResponse, type NextRequest } from "next/server";
 import { TEN_COOKIE, giaiMaToken } from "@/lib/auth/token";
 import { duocTruyCap, trangChuTheoVaiTro } from "@/lib/auth/phanQuyen";
 
+/** Trang vào được khi CHƯA đăng nhập. */
+const TRANG_CONG_KHAI = ["/dang-nhap", "/quen-mat-khau"];
+
 export default async function proxy(req: NextRequest) {
   const duongDan = req.nextUrl.pathname;
   const phien = await giaiMaToken(req.cookies.get(TEN_COOKIE)?.value);
   const chuyenDen = (url: string) => NextResponse.redirect(new URL(url, req.nextUrl));
 
-  if (!phien) return duongDan === "/dang-nhap" ? NextResponse.next() : chuyenDen("/dang-nhap");
-  if (duongDan === "/" || !duocTruyCap(duongDan, phien.vaiTro)) return chuyenDen(trangChuTheoVaiTro(phien.vaiTro));
+  if (!phien) return TRANG_CONG_KHAI.includes(duongDan) ? NextResponse.next() : chuyenDen("/dang-nhap");
+  // Đã đăng nhập mà vào trang đăng nhập / quên mật khẩu → về trang chủ theo vai trò
+  if (duongDan === "/" || TRANG_CONG_KHAI.includes(duongDan) || !duocTruyCap(duongDan, phien.vaiTro)) {
+    return chuyenDen(trangChuTheoVaiTro(phien.vaiTro));
+  }
   return NextResponse.next();
 }
 

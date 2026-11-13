@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { dangNhap } from "@/app/actions/auth";
 
@@ -39,6 +40,9 @@ export default function FormDangNhap() {
       >
         {pending ? "Đang đăng nhập..." : "Đăng nhập"}
       </button>
+      <p className="text-center text-sm">
+        <Link href="/quen-mat-khau" className="text-blue-600 hover:underline">Quên mật khẩu?</Link>
+      </p>
     </form>
   );
 }
