@@ -11,6 +11,8 @@ import { khachHangRepository } from "@/lib/repositories/khachHangRepository";
 import { maGiamGiaRepository } from "@/lib/repositories/maGiamGiaRepository";
 import { sachRepository } from "@/lib/repositories/sachRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
+import { tinhDiemCong } from "@/lib/services/tinhTienHoaDon";
 
 export const SO_HOA_DON_MOI_TRANG = 20;
 export const TRANG_THAI_HOA_DON = { DA_THANH_TOAN: "Đã thanh toán", DA_HUY: "Đã hủy (sau thanh toán)", NHAP_HUY: "Đơn nháp đã hủy" } as const;
@@ -31,7 +33,8 @@ export const hoaDonService = {
     const hd = await hoaDonRepository.layHoaDonDayDu(maHD);
     if (!hd || hd.trangThai === "DANG_LAP") return null;
     if (nguoiXem.vaiTro !== "ADMIN" && hd.maTK !== nguoiXem.maTK) return null;
-    return hd;
+    const { tyLeQuyDoiDiem } = await cauHinhRepository.lay();
+    return { ...hd, diemCong: hd.maKH ? tinhDiemCong(Number(hd.tongTien), Number(tyLeQuyDoiDiem)) : 0 };
   },
 
   nhanVien: () => prisma.taiKhoan.findMany({ select: { maTK: true, hoTen: true }, orderBy: { hoTen: "asc" } }),
@@ -56,8 +59,10 @@ export const hoaDonService = {
       const ghiChu: string[] = [`hoàn kho ${hd.chiTiets.reduce((t, c) => t + c.soLuong, 0)} cuốn`];
       if (hd.khachHang) {
         const kh = hd.khachHang;
-        const thieu = await khachHangRepository.hoanDiemKhiHuy(tx, kh.maKH, hd.diemSuDung, hd.diemCong);
-        ghiChu.push(`KH ${kh.soDienThoai}: +${hd.diemSuDung} điểm đã dùng, −${hd.diemCong} điểm đã cộng${thieu ? ` (khách đã tiêu, hụt ${thieu} điểm)` : ""}`);
+        const { tyLeQuyDoiDiem } = await cauHinhRepository.lay(tx);
+        const diemCong = tinhDiemCong(Number(hd.tongTien), Number(tyLeQuyDoiDiem));
+        const thieu = await khachHangRepository.hoanDiemKhiHuy(tx, kh.maKH, hd.diemSuDung, diemCong);
+        ghiChu.push(`KH ${kh.soDienThoai}: +${hd.diemSuDung} điểm đã dùng, −${diemCong} điểm đã cộng${thieu ? ` (khách đã tiêu, hụt ${thieu} điểm)` : ""}`);
         // Xét lại hạng theo điểm tích lũy mới (có thể hạ nếu hóa đơn này đã giúp khách lên hạng)
         const moi = await tx.khachHang.findUniqueOrThrow({ where: { maKH: kh.maKH }, select: { diemTichLuy: true } });
         const hang = await khachHangRepository.hangTheoDiem(tx, moi.diemTichLuy);

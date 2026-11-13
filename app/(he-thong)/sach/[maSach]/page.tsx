@@ -25,7 +25,7 @@ export default async function TrangSuaSach({ params }: PageProps<"/sach/[maSach]
         <p className="mb-4 text-sm text-gray-500">Đổi giá chỉ áp dụng cho đơn mới; hóa đơn cũ giữ giá lúc bán.</p>
         <FormSach
           maSach={sach.maSach}
-          theLoais={theLoais.map((t) => ({ maTL: t.maTL, tenTL: t.tenTL, thueSuatVAT: Number(t.thueSuatVAT) }))}
+          theLoais={theLoais.map((t) => ({ maTL: t.maTL, tenTL: t.tenTL }))}
           banDau={{
             isbn: sach.isbn, tenSach: sach.tenSach, tacGia: sach.tacGia, nhaXuatBan: sach.nhaXuatBan ?? "",
             namXB: sach.namXB?.toString() ?? "", maTL: String(sach.maTL), giaNhap: String(Number(sach.giaNhap)),

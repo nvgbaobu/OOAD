@@ -88,7 +88,7 @@ export default async function TrangSach({ searchParams }: PageProps<"/sach">) {
                     <div className="font-medium">{s.tenSach}</div>
                     <div className="text-xs text-gray-500">{s.tacGia} · ISBN {s.isbn}{s.namXB ? ` · ${s.namXB}` : ""}</div>
                   </td>
-                  <td className="text-xs">{s.theLoai.tenTL}<br /><span className="text-gray-500">VAT {Number(s.theLoai.thueSuatVAT)}%</span></td>
+                  <td className="text-xs">{s.theLoai.tenTL}</td>
                   <td className="text-right">{tienVND(s.giaNhap)}</td>
                   <td className="text-right">{tienVND(s.giaBan)}</td>
                   <td className={`text-right ${sapHet ? "font-semibold text-orange-600" : ""}`} title={sapHet ? `Dưới định mức ${s.dinhMucToiThieu}` : undefined}>

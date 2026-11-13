@@ -35,7 +35,7 @@ export async function luuTheLoai(_: KetQuaForm, fd: FormData): Promise<KetQuaFor
   const nd = await yeuCauDangNhap("ADMIN");
   const duLieu = docForm(fd);
   const kq = await batLoiNghiepVu(
-    () => sachService.luuTheLoai(Number(duLieu.maTL) || null, duLieu.tenTL ?? "", duLieu.thueSuatVAT ?? "", nd.maTK),
+    () => sachService.luuTheLoai(Number(duLieu.maTL) || null, duLieu.tenTL ?? "", nd.maTK),
     duLieu,
   );
   if (!kq) refresh();

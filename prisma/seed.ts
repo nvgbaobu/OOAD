@@ -76,18 +76,16 @@ async function main() {
     prisma.hangThanhVien.create({ data: { tenHang: "Vàng", diemToiThieu: 2000, phanTramUuDai: 10 } }),
   ]);
 
-  // ── 3. Thể loại [tên, thuế suất VAT %]: 0% = chính trị/giáo dục/văn hóa (không chịu thuế GTGT), 5% = còn lại
-  const dsTheLoai: [string, number][] = [
-    ["Văn học Việt Nam", 5], ["Văn học nước ngoài", 5], ["Kinh tế", 5], ["Kỹ năng sống", 5], ["Thiếu nhi", 5],
-    ["Khoa học", 0], ["Lịch sử", 0], ["Công nghệ thông tin", 5], ["Tâm lý", 5], ["Ngoại ngữ", 5],
-    ["Giáo trình – Sách giáo khoa", 0], ["Chính trị – Pháp luật", 0],
+  // ── 3. Thể loại (VAT một mức chung THUE_SUAT_VAT cho mọi sách – không gắn theo thể loại)
+  const dsTheLoai = [
+    "Văn học Việt Nam", "Văn học nước ngoài", "Kinh tế", "Kỹ năng sống", "Thiếu nhi",
+    "Khoa học", "Lịch sử", "Công nghệ thông tin", "Tâm lý", "Ngoại ngữ",
+    "Giáo trình – Sách giáo khoa", "Chính trị – Pháp luật",
   ];
   const theLoai: Record<string, number> = {};
-  const thueSuatTheoTL: Record<number, number> = {};
-  for (const [tenTL, thueSuatVAT] of dsTheLoai) {
-    const tl = await prisma.theLoai.create({ data: { tenTL, thueSuatVAT } });
+  for (const tenTL of dsTheLoai) {
+    const tl = await prisma.theLoai.create({ data: { tenTL } });
     theLoai[tenTL] = tl.maTL;
-    thueSuatTheoTL[tl.maTL] = thueSuatVAT;
   }
 
   // ── 4. Sách (30 cuốn) [isbn, tên, tác giả, NXB, năm, thể loại, giá nhập, giá bán, kệ, tồn]
@@ -191,8 +189,7 @@ async function main() {
   for (const don of dsDon) {
     const chiTiets = don.dong.map(([i, soLuong]) => {
       const donGiaBan = Number(sach[i].giaBan);
-      const thueSuatVAT = thueSuatTheoTL[sach[i].maTL];
-      return { maSach: sach[i].maSach, soLuong, donGiaBan, thanhTien: donGiaBan * soLuong, thueSuatVAT };
+      return { maSach: sach[i].maSach, soLuong, donGiaBan, thanhTien: donGiaBan * soLuong };
     });
     const kh = don.kh === undefined ? null : khach[don.kh];
     const tien = tinhTienHoaDon({
@@ -202,7 +199,7 @@ async function main() {
     await prisma.hoaDon.create({
       data: {
         maTK: don.nv, maKH: kh?.maKH, thoiGianTao: daQua(ngayTruoc(don.ngay, 9 + don.ngay)), trangThai: "DA_THANH_TOAN",
-        tamTinh: tien.tamTinh, giamHangThe: tien.giamHang, thueVAT: tien.thueVAT, tongTien: tien.tongTien, diemCong: tien.diemCong,
+        tamTinh: tien.tamTinh, giamHangThe: tien.giamHang, thueVAT: tien.thueVAT, tongTien: tien.tongTien,
         phuongThucTT: don.tt,
         tienKhachDua: don.tt === "TIEN_MAT" ? Math.ceil(tien.tongTien / 50000) * 50000 : tien.tongTien,
         chiTiets: { create: chiTiets },
