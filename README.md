@@ -113,3 +113,14 @@ proxy.ts                 chuyển hướng theo đăng nhập / vai trò
 - Mỗi module làm trên 1 branch `feature/<module>`, chạy được và qua kiểm tra mới merge vào `main`.
 - Commit message tiếng Việt: `feat(<module>): ...`, `fix(...)`, `chore(...)`.
 - Đổi lược đồ: sửa `prisma/schema.prisma` → `npx prisma migrate dev --name <ten>` (ràng buộc CHECK thêm tay vào file migration) → `npx prisma generate` → cập nhật seed nếu cần.
+
+## Sao lưu & phục hồi CSDL
+
+Sao lưu: **Cài đặt → Sao lưu dữ liệu** (file `.bak` trong volume Docker `mssql_data`). Phục hồi làm thủ công (cần dừng app):
+
+```bash
+docker exec -it qlbs-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q \
+  "ALTER DATABASE QuanLyBanSach SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+   RESTORE DATABASE QuanLyBanSach FROM DISK = N'<đường dẫn file .bak>' WITH REPLACE;
+   ALTER DATABASE QuanLyBanSach SET MULTI_USER;"
+```
