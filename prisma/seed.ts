@@ -69,6 +69,14 @@ async function main() {
   const staff2 = await prisma.taiKhoan.create({
     data: { soDienThoai: "0900000003", matKhauHash: hash, hoTen: "Quách Tuấn Hào", email: "hao@nhasach09.vn", vaiTro: "STAFF" },
   });
+  // Các thành viên còn lại của nhóm – nhân viên bán hàng (mật khẩu mặc định như trên)
+  await prisma.taiKhoan.createMany({
+    data: [
+      { soDienThoai: "0900000004", matKhauHash: hash, hoTen: "Vũ Tiến Thịnh", email: "thinh@nhasach09.vn", vaiTro: "STAFF" },
+      { soDienThoai: "0900000005", matKhauHash: hash, hoTen: "Nguyễn Trung Hiếu", email: "hieu@nhasach09.vn", vaiTro: "STAFF" },
+      { soDienThoai: "0900000006", matKhauHash: hash, hoTen: "Tạ Ngọc Khánh Huy", email: "huy@nhasach09.vn", vaiTro: "STAFF" },
+    ],
+  });
 
   // ── 5. Hạng thành viên
   const [hangDong, hangBac, hangVang] = await Promise.all([
@@ -256,7 +264,7 @@ async function main() {
     data: { maTK: admin.maTK, module: "HE_THONG", hanhDong: "SEED", noiDung: "Khởi tạo dữ liệu mẫu" },
   });
 
-  console.log("✔ Seed xong. Đăng nhập: admin 0900000001 / staff 0900000002, 0900000003 – mật khẩu", MAT_KHAU_MAC_DINH);
+  console.log("✔ Seed xong. Đăng nhập: admin 0900000001 / staff 0900000002 → 0900000006 – mật khẩu", MAT_KHAU_MAC_DINH);
 }
 
 main()

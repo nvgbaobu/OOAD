@@ -52,7 +52,7 @@ Mật khẩu `sa` trong `.env.example` / `docker-compose.yml` chỉ dùng cho m�
 | Vai trò | Số điện thoại | Sau đăng nhập |
 |---|---|---|
 | Admin | `0900000001` | Dashboard |
-| Staff | `0900000002` (Lê Hoàng An), `0900000003` (Quách Tuấn Hào) | Bán hàng (POS) |
+| Staff | `0900000002` (Lê Hoàng An), `0900000003` (Quách Tuấn Hào), `0900000004` (Vũ Tiến Thịnh), `0900000005` (Nguyễn Trung Hiếu), `0900000006` (Tạ Ngọc Khánh Huy) | Bán hàng (POS) |
 
 Dữ liệu mẫu: 129 đầu sách / 12 thể loại (30 sách mẫu + 99 sách ngoại văn bán chạy lấy từ Fahasa, ISBN là mã giả), 8 khách hàng thành viên (Đồng/Bạc/Vàng), 4 nhà cung cấp, 5 mã giảm giá, 1 combo,
 7 hóa đơn trong 7 ngày gần nhất, phiếu nhập/kiểm kê/xuất hủy đang chờ duyệt.

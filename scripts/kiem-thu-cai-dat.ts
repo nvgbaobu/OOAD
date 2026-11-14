@@ -46,25 +46,25 @@ async function main() {
   await posService.huyDon(an);
 
   console.log("2. Thêm / sửa tài khoản");
-  const tk = { soDienThoai: "0912 345 678", hoTen: "  Nguyễn  Trung Hiếu ", email: "hieu@nhasach09.vn", vaiTro: "STAFF", matKhau: "hieu2026" };
+  const tk = { soDienThoai: "0912 345 678", hoTen: "  Trần  Thị Thử ", email: "thu@nhasach09.vn", vaiTro: "STAFF", matKhau: "thu2026" };
   await phaiLoi(() => taiKhoanService.tao({ ...tk, soDienThoai: "0900000002" }, admin), "soDienThoai", "đã có tài khoản");
   await phaiLoi(() => taiKhoanService.tao({ ...tk, matKhau: "123" }, admin), "matKhau", "tối thiểu 6");
   await phaiLoi(() => taiKhoanService.tao({ ...tk, vaiTro: "KHACH" }, admin), "vaiTro", "Chọn vai trò");
-  const hieu = await taiKhoanService.tao(tk, admin);
-  kiemTra(hieu.soDienThoai === "0912345678" && hieu.hoTen === "Nguyễn Trung Hiếu" && !("matKhauHash" in hieu), "tạo tài khoản (chuẩn hóa, không trả hash)");
-  const dn = await authService.dangNhap("0912345678", "hieu2026");
+  const tkMoi = await taiKhoanService.tao(tk, admin);
+  kiemTra(tkMoi.soDienThoai === "0912345678" && tkMoi.hoTen === "Trần Thị Thử" && !("matKhauHash" in tkMoi), "tạo tài khoản (chuẩn hóa, không trả hash)");
+  const dn = await authService.dangNhap("0912345678", "thu2026");
   kiemTra(dn.ok && dn.vaiTro === "STAFF", "đăng nhập bằng tài khoản mới");
-  await taiKhoanService.capNhat(hieu.maTK, { ...tk, vaiTro: "ADMIN" }, admin);
-  kiemTra((await taiKhoanService.layChiTiet(hieu.maTK))?.vaiTro === "ADMIN", "nâng lên Admin");
+  await taiKhoanService.capNhat(tkMoi.maTK, { ...tk, vaiTro: "ADMIN" }, admin);
+  kiemTra((await taiKhoanService.layChiTiet(tkMoi.maTK))?.vaiTro === "ADMIN", "nâng lên Admin");
 
   console.log("3. Quy tắc Admin");
   await phaiLoi(() => taiKhoanService.capNhat(admin, { ...tk, hoTen: "Gia Bảo", vaiTro: "STAFF" }, admin), "vaiTro", "Không tự hạ quyền");
   await phaiLoi(() => taiKhoanService.doiTrangThai(admin, true, admin), null, "Không tự khóa");
-  await taiKhoanService.doiTrangThai(admin, true, hieu.maTK); // còn Hiếu là Admin → khóa được
+  await taiKhoanService.doiTrangThai(admin, true, tkMoi.maTK); // còn tài khoản mới là Admin → khóa được
   kiemTra((await authService.dangNhap("0900000001", "123456")).ok === false, "Admin bị khóa không đăng nhập được");
-  await phaiLoi(() => taiKhoanService.capNhat(hieu.maTK, { ...tk, vaiTro: "STAFF" }, an), "vaiTro", "ít nhất 1 Admin");
-  await phaiLoi(() => taiKhoanService.doiTrangThai(hieu.maTK, true, an), null, "ít nhất 1 Admin");
-  await taiKhoanService.doiTrangThai(admin, false, hieu.maTK);
+  await phaiLoi(() => taiKhoanService.capNhat(tkMoi.maTK, { ...tk, vaiTro: "STAFF" }, an), "vaiTro", "ít nhất 1 Admin");
+  await phaiLoi(() => taiKhoanService.doiTrangThai(tkMoi.maTK, true, an), null, "ít nhất 1 Admin");
+  await taiKhoanService.doiTrangThai(admin, false, tkMoi.maTK);
   kiemTra((await authService.dangNhap("0900000001", "123456")).ok, "mở khóa → đăng nhập lại được");
 
   console.log("4. Khóa nhân viên đang có đơn ở quầy");
@@ -91,7 +91,7 @@ async function main() {
   const nkTK = await caiDatService.nhatKy({ module: "TAI_KHOAN" }, 1);
   const hd = new Set(nkTK.dong.map((n) => n.hanhDong));
   kiemTra(["THEM", "SUA", "KHOA", "MO_KHOA", "DAT_LAI_MAT_KHAU", "DOI_MAT_KHAU", "DANG_NHAP", "DANG_NHAP_BI_KHOA"].every((h) => hd.has(h)), `nhật ký TAI_KHOAN đủ hành động (${nkTK.tong} dòng)`);
-  kiemTra((await caiDatService.nhatKy({ tuKhoa: "Trung Hiếu" }, 1)).dong.every((n) => n.noiDung?.includes("Trung Hiếu")), "tìm theo nội dung");
+  kiemTra((await caiDatService.nhatKy({ tuKhoa: "Thị Thử" }, 1)).dong.every((n) => n.noiDung?.includes("Thị Thử")), "tìm theo nội dung");
   kiemTra((await caiDatService.cacModuleNhatKy()).includes("CAI_DAT"), "danh sách module có CAI_DAT");
 
   console.log("7. Sao lưu");
