@@ -35,10 +35,11 @@ export default async function TrangSaoLuu() {
                 <td className="whitespace-nowrap">{ngayGio(b.thoiGian)}</td><td>{b.taiKhoan.hoTen}</td>
                 <td className="font-mono text-xs break-all">{b.duongDanFile}</td><td className="text-right whitespace-nowrap">{kichThuoc(b.kichThuoc)}</td>
                 <td className="text-right">
-                  <FormPhucHoi action={phucHoiTuBanSaoLuu} className="flex flex-col items-end"
+                  {/* Rộng cố định: thông báo dài (chứa đường dẫn file) xuống dòng trong ô này, không ép cột File */}
+                  <FormPhucHoi action={phucHoiTuBanSaoLuu} className="ml-auto flex w-56 flex-col items-end gap-1 text-left"
                     xacNhan={`Phục hồi CSDL về bản sao lưu lúc ${ngayGio(b.thoiGian)}?\nToàn bộ dữ liệu hiện tại sẽ bị GHI ĐÈ (hệ thống tự sao lưu trạng thái hiện tại trước khi phục hồi). Mọi người dùng đang thao tác sẽ bị ngắt.`}>
                     <input type="hidden" name="maBackup" value={b.maBackup} />
-                    <button className="rounded border border-orange-500 px-2 py-0.5 text-xs text-orange-700 hover:bg-orange-50">Phục hồi</button>
+                    <button className="whitespace-nowrap rounded border border-orange-500 px-2 py-0.5 text-xs text-orange-700 hover:bg-orange-50">Phục hồi</button>
                   </FormPhucHoi>
                 </td>
               </tr>

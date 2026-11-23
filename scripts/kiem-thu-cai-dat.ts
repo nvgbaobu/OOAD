@@ -110,6 +110,7 @@ async function main() {
   kiemTra(!(await prisma.theLoai.findUnique({ where: { maTL: tlTam.maTL } })), "dữ liệu thêm sau thời điểm sao lưu đã mất (CSDL về đúng bản sao lưu)");
   kiemTra(/_truocPhucHoi\.bak$/.test(kqPH.anToan) && !!(await prisma.banSaoLuu.findFirst({ where: { duongDanFile: kqPH.anToan } })), `tự sao lưu trước khi phục hồi: ${kqPH.anToan}`);
   kiemTra(!!(await prisma.nhatKyHeThong.findFirst({ where: { module: "CAI_DAT", hanhDong: "PHUC_HOI" } })), "ghi nhật ký PHUC_HOI vào CSDL sau phục hồi");
+  kiemTra(!!(await prisma.banSaoLuu.findFirst({ where: { duongDanFile: bs.duongDanFile } })), "bản sao lưu nguồn vẫn còn trong danh sách sau phục hồi");
   try {
     execFileSync("docker", ["exec", "qlbs-mssql", "rm", "-f", kqPH.anToan]);
   } catch { /* bỏ qua */ }

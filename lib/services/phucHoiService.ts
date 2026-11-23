@@ -57,7 +57,17 @@ async function choKetNoiLai() {
   }
 }
 
-async function phucHoiTuDuongDan(duongDan: string, moTaNguon: string, maTK: number) {
+type DongSaoLuu = { maTK: number; thoiGian: Date; duongDanFile: string; kichThuoc: bigint | number };
+
+/** Sau RESTORE, CSDL không có các dòng BanSaoLuu tạo sau thời điểm file .bak → ghi lại nếu thiếu (so theo đường dẫn). */
+async function damBaoCoDongSaoLuu(dongs: DongSaoLuu[]) {
+  for (const d of dongs) {
+    const daCo = await prisma.banSaoLuu.findFirst({ where: { duongDanFile: d.duongDanFile }, select: { maBackup: true } });
+    if (!daCo) await prisma.banSaoLuu.create({ data: { maTK: d.maTK, thoiGian: d.thoiGian, duongDanFile: d.duongDanFile, kichThuoc: d.kichThuoc } });
+  }
+}
+
+async function phucHoiTuDuongDan(duongDan: string, moTaNguon: string, maTK: number, giuLai: DongSaoLuu[] = []) {
   if (!DUONG_DAN_HOP_LE.test(duongDan)) throw new LoiNghiepVu("Đường dẫn file sao lưu không hợp lệ");
   const db = TEN_DB();
   const pool = await ketNoiMaster();
@@ -74,8 +84,9 @@ async function phucHoiTuDuongDan(duongDan: string, moTaNguon: string, maTK: numb
       await pool.request().batch(`IF DB_ID(N'${db}') IS NOT NULL ALTER DATABASE [${db}] SET MULTI_USER`).catch(() => undefined);
     }
     await choKetNoiLai();
-    // CSDL vừa phục hồi không có dòng của bản sao lưu an toàn / nhật ký lần này → ghi lại
-    await prisma.banSaoLuu.create({ data: { maTK, thoiGian: anToan.thoiGian, duongDanFile: anToan.duongDanFile, kichThuoc: anToan.kichThuoc } }).catch(() => undefined);
+    // CSDL vừa phục hồi không có dòng của bản nguồn (nếu nó được tạo sau thời điểm của chính file .bak),
+    // bản sao lưu an toàn và nhật ký lần này → ghi lại
+    await damBaoCoDongSaoLuu([...giuLai, { maTK, thoiGian: anToan.thoiGian, duongDanFile: anToan.duongDanFile, kichThuoc: anToan.kichThuoc }]).catch(() => undefined);
     await nhatKyRepository.ghi({ maTK, module: "CAI_DAT", hanhDong: "PHUC_HOI", noiDung: `Phục hồi từ ${moTaNguon}. Bản sao lưu trước khi phục hồi: ${anToan.duongDanFile}` }).catch(() => undefined);
     return { anToan: anToan.duongDanFile };
   } finally {
@@ -88,7 +99,7 @@ export const phucHoiService = {
   async tuBanSaoLuu(maBackup: number, maTK: number) {
     const bs = Number.isInteger(maBackup) ? await prisma.banSaoLuu.findUnique({ where: { maBackup } }) : null;
     if (!bs) throw new LoiNghiepVu("Không tìm thấy bản sao lưu");
-    return phucHoiTuDuongDan(bs.duongDanFile, `bản sao lưu #${bs.maBackup} (${bs.duongDanFile})`, maTK);
+    return phucHoiTuDuongDan(bs.duongDanFile, `bản sao lưu #${bs.maBackup} (${bs.duongDanFile})`, maTK, [bs]);
   },
 
   /** Phục hồi từ file .bak tải lên (cần thư mục dùng chung app ↔ SQL Server). */
