@@ -77,6 +77,18 @@ export const phieuKhoRepository = {
     }),
   taoPhieuNhap: (db: Db, maTKLap: number, maNCC: number, ghiChu: string | null, tongTien: number, dong: { maSach: number; soLuong: number; giaNhap: number }[]) =>
     db.phieuNhap.create({ data: { maTKLap, maNCC, ghiChu, tongTien, trangThai: "CHO_DUYET", chiTiets: { create: dong } } }),
+  /** UC7.3 2a – sửa SL thực nhận 1 dòng, chỉ khi phiếu còn CHO_DUYET (UPDATE có điều kiện). Trả về true nếu sửa được. */
+  async suaSoLuongChiTietNhap(db: Db, maPN: number, maSach: number, soLuong: number) {
+    const r = await db.chiTietPhieuNhap.updateMany({ where: { maPN, maSach, phieuNhap: { trangThai: "CHO_DUYET" } }, data: { soLuong } });
+    return r.count === 1;
+  },
+  /** Tính lại tổng tiền phiếu nhập = Σ SL × giá nhập. */
+  async tinhLaiTongTienNhap(db: Db, maPN: number) {
+    const ct = await db.chiTietPhieuNhap.findMany({ where: { maPN } });
+    const tongTien = ct.reduce((t, c) => t + c.soLuong * Number(c.giaNhap), 0);
+    await db.phieuNhap.update({ where: { maPN }, data: { tongTien } });
+    return tongTien;
+  },
   async xuLyPhieuNhap(db: Db, maPN: number, data: { trangThai: string; maTKDuyet: number; lyDoTuChoi?: string }) {
     const r = await db.phieuNhap.updateMany({ where: { maPN, trangThai: "CHO_DUYET" }, data: { ...data, ngayDuyet: new Date() } });
     return r.count === 1;

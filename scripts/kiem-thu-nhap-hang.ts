@@ -63,7 +63,15 @@ async function main() {
   kiemTra(sNhanh.soLuongTon === 0 && sNhanh.trangThai === "DANG_BAN" && sNhanh.dinhMucToiThieu === 5, "Staff tạo nhanh sách: tồn 0, đang bán");
   const pnNhanh = await khoService.lapPhieuNhap(String(dongA.maNCC), "", [d(sNhanh, 15, 30000)], staff);
   kiemTra(pnNhanh.trangThai === "CHO_DUYET", "lập phiếu nhập được ngay với sách vừa tạo");
+  console.log("2c. Sửa số lượng thực nhận trước khi duyệt (UC7.3 – 2a)");
+  await phaiLoi(() => khoService.suaSoLuongThucNhan(pnNhanh.maPN, String(sNhanh.maSach), "16", admin), "soLuong", "1 đến 15");
+  await phaiLoi(() => khoService.suaSoLuongThucNhan(pnNhanh.maPN, String(sNhanh.maSach), "0", admin), "soLuong", "1 đến 15");
+  await khoService.suaSoLuongThucNhan(pnNhanh.maPN, String(sNhanh.maSach), "12", admin);
+  const pnSua = (await khoService.layPhieuNhap(pnNhanh.maPN))!;
+  kiemTra(pnSua.chiTiets[0].soLuong === 12 && Number(pnSua.tongTien) === 12 * 30000, `SL 15 → 12, tổng tiền tính lại ${Number(pnSua.tongTien)}`);
+  kiemTra(!!(await prisma.nhatKyHeThong.findFirst({ where: { hanhDong: "SUA_SL_PHIEU_NHAP" } })), "ghi nhật ký SUA_SL_PHIEU_NHAP");
   await khoService.tuChoiPhieuNhap(pnNhanh.maPN, "Phiếu thử", admin);
+  await phaiLoi(() => khoService.suaSoLuongThucNhan(pnNhanh.maPN, String(sNhanh.maSach), "10", admin), null, "chờ duyệt");
 
   console.log("3. Duyệt phiếu nhập");
   await khoService.duyetPhieuNhap(pn.maPN, admin);

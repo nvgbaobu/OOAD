@@ -68,3 +68,12 @@ export async function taoNhanhSach(_: KetQuaForm, fd: FormData): Promise<KetQuaF
     duLieu: { maSach: String(sach.maSach), tenSach: sach.tenSach, isbn: sach.isbn, giaNhap: String(Number(sach.giaNhap)), giaBan: String(Number(sach.giaBan)) },
   };
 }
+
+/** UC7.3 – 2a. Admin sửa số lượng thực nhận của một dòng phiếu nhập đang chờ duyệt. */
+export async function suaSoLuongThucNhan(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> {
+  const nd = await yeuCauDangNhap("ADMIN");
+  const kq = await batLoiNghiepVu(() =>
+    khoService.suaSoLuongThucNhan(Number(fd.get("ma")), String(fd.get("maSach") ?? ""), String(fd.get("soLuong") ?? ""), nd.maTK));
+  if (!kq) refresh();
+  return kq;
+}

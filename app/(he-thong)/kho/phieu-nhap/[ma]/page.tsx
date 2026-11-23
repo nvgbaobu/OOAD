@@ -5,6 +5,8 @@ import { yeuCauDangNhap } from "@/lib/auth/dal";
 import { khoService } from "@/lib/services/khoService";
 import { tienVND } from "@/lib/dinhDang";
 import { ThongTinPhieu, XuLyPhieu } from "../../thanhPhan";
+import FormHanhDong from "@/app/components/FormHanhDong";
+import { suaSoLuongThucNhan } from "@/app/actions/kho";
 
 export const metadata: Metadata = { title: "Phiếu nhập" };
 
@@ -15,6 +17,7 @@ export default async function TrangPhieuNhap({ params }: PageProps<"/kho/phieu-n
   if (!p) notFound();
   const choDuyet = p.trangThai === "CHO_DUYET";
   const tongCuon = p.chiTiets.reduce((t, c) => t + c.soLuong, 0);
+  const suaSL = choDuyet && nd.vaiTro === "ADMIN"; // UC7.3 – 2a: sửa SL thực nhận khi hàng giao thiếu/lỗi
   const soDoiGia = p.chiTiets.filter((c) => Number(c.giaNhap) !== Number(c.sach.giaNhap)).length;
 
   return (
@@ -33,12 +36,13 @@ export default async function TrangPhieuNhap({ params }: PageProps<"/kho/phieu-n
           moTaDuyet={`Cộng ${tongCuon} cuốn vào tồn kho${soDoiGia ? `, cập nhật giá nhập ${soDoiGia} sách` : ""}.`} />
       )}
       {choDuyet && nd.vaiTro !== "ADMIN" && <p className="text-sm text-gray-600">Phiếu đang chờ Admin duyệt.</p>}
+      {suaSL && <p className="text-sm text-gray-600">Hàng giao thiếu hoặc lỗi: sửa <b>SL nhập</b> của dòng tương ứng (chỉ được giảm) rồi bấm Lưu trước khi duyệt – tổng tiền tự tính lại.</p>}
 
       <div className="overflow-x-auto rounded-lg border bg-white">
         <table className="w-full min-w-[760px] text-sm [&_td]:px-3 [&_td]:py-1.5 [&_th]:px-3">
           <thead className="border-b bg-gray-50 text-left text-gray-600">
             <tr>
-              <th className="py-2">Sách</th><th className="text-right">SL nhập</th><th className="text-right">Giá nhập</th><th className="text-right">Thành tiền</th>
+              <th className="py-2">Sách</th><th className="text-right">{suaSL ? "SL thực nhận" : "SL nhập"}</th><th className="text-right">Giá nhập</th><th className="text-right">Thành tiền</th>
               {choDuyet && <><th className="text-right">Giá nhập hiện tại</th><th className="text-right">Tồn → sau duyệt</th></>}
             </tr>
           </thead>
@@ -48,7 +52,17 @@ export default async function TrangPhieuNhap({ params }: PageProps<"/kho/phieu-n
               return (
                 <tr key={c.maSach} className="border-b last:border-0">
                   <td>{c.sach.tenSach}<div className="text-xs text-gray-500">ISBN {c.sach.isbn} · giá bán {tienVND(c.sach.giaBan)}</div></td>
-                  <td className="text-right">{c.soLuong}</td>
+                  <td className="text-right">
+                    {suaSL ? (
+                      <FormHanhDong action={suaSoLuongThucNhan} className="flex flex-wrap justify-end gap-1">
+                        <input type="hidden" name="ma" value={p.maPN} />
+                        <input type="hidden" name="maSach" value={c.maSach} />
+                        <input name="soLuong" type="number" min={1} max={c.soLuong} defaultValue={c.soLuong} aria-label={`SL thực nhận ${c.sach.tenSach}`}
+                          className="w-20 rounded border px-1 py-0.5 text-right" />
+                        <button className="rounded border px-2 py-0.5 text-xs hover:bg-gray-50">Lưu</button>
+                      </FormHanhDong>
+                    ) : c.soLuong}
+                  </td>
                   <td className="text-right">{tienVND(c.giaNhap)}</td>
                   <td className="text-right">{tienVND(c.soLuong * Number(c.giaNhap))}</td>
                   {choDuyet && (

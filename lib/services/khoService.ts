@@ -123,6 +123,29 @@ export const khoService = {
     });
   },
 
+  /** UC7.3 – 2a. Hàng giao thiếu/lỗi: Admin sửa số lượng thực nhận của 1 dòng trước khi duyệt (chỉ giảm, 1 ≤ SL mới ≤ SL trên phiếu). */
+  async suaSoLuongThucNhan(maPN: number, maSachTho: string, soLuongTho: string, maTK: number) {
+    const maSach = Number(maSachTho);
+    const soLuong = soNguyen(soLuongTho);
+    await prisma.$transaction(async (tx) => {
+      const phieu = await phieuKhoRepository.layPhieuNhap(tx, maPN);
+      if (!phieu) throw new LoiNghiepVu("Phiếu không tồn tại");
+      if (phieu.trangThai !== "CHO_DUYET") throw new LoiNghiepVu("Chỉ sửa được phiếu đang chờ duyệt");
+      const dong = phieu.chiTiets.find((c) => c.maSach === maSach);
+      if (!dong) throw new LoiNghiepVu("Sách không có trong phiếu");
+      if (!Number.isInteger(soLuong) || soLuong < 1 || soLuong > dong.soLuong) {
+        throw new LoiNghiepVu(`Số lượng thực nhận là số nguyên từ 1 đến ${dong.soLuong}`, { soLuong: `Từ 1 đến ${dong.soLuong}` });
+      }
+      if (soLuong === dong.soLuong) return;
+      if (!(await phieuKhoRepository.suaSoLuongChiTietNhap(tx, maPN, maSach, soLuong))) throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
+      const tongTien = await phieuKhoRepository.tinhLaiTongTienNhap(tx, maPN);
+      await nhatKyRepository.ghi(
+        { maTK, module: "KHO", hanhDong: "SUA_SL_PHIEU_NHAP", noiDung: `Phiếu #${maPN} – ${dong.sach.tenSach}: ${dong.soLuong} → ${soLuong} cuốn, tổng tiền ${vnd(tongTien)}` },
+        tx,
+      );
+    });
+  },
+
   async tuChoiPhieuNhap(maPN: number, lyDoTho: string, maTK: number) {
     const lyDo = kiemTraLyDoTuChoi(lyDoTho);
     if (!(await phieuKhoRepository.xuLyPhieuNhap(prisma, maPN, { trangThai: "TU_CHOI", maTKDuyet: maTK, lyDoTuChoi: lyDo }))) {
