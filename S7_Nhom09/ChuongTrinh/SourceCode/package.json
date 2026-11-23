@@ -1,0 +1,56 @@
+{
+  "name": "quan-ly-ban-sach",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test:pos": "tsx scripts/kiem-thu-pos.ts && prisma db seed",
+    "test:sach": "tsx scripts/kiem-thu-sach.ts && prisma db seed",
+    "test:kho": "tsx scripts/kiem-thu-kho.ts && prisma db seed",
+    "test:nhap": "tsx scripts/kiem-thu-nhap-hang.ts && prisma db seed",
+    "test:hoa-don": "tsx scripts/kiem-thu-hoa-don.ts && prisma db seed",
+    "test:khach-hang": "tsx scripts/kiem-thu-khach-hang.ts && prisma db seed",
+    "test:khuyen-mai": "tsx scripts/kiem-thu-khuyen-mai.ts && prisma db seed",
+    "test:bao-cao": "tsx scripts/kiem-thu-bao-cao.ts && prisma db seed",
+    "test:cai-dat": "tsx scripts/kiem-thu-cai-dat.ts && prisma db seed",
+    "test:quen-mat-khau": "tsx scripts/kiem-thu-quen-mat-khau.ts && prisma db seed",
+    "test": "prisma db seed && npm run test:pos && npm run test:sach && npm run test:kho && npm run test:nhap && npm run test:hoa-don && npm run test:khach-hang && npm run test:khuyen-mai && npm run test:bao-cao && npm run test:cai-dat && npm run test:quen-mat-khau"
+  },
+  "dependencies": {
+    "@prisma/adapter-mssql": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.9",
+    "exceljs": "^4.4.0",
+    "jose": "^6.2.15",
+    "mssql": "12.7.13",
+    "next": "16.4.5",
+    "pdfkit": "0.17.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/mssql": "9.1.7",
+    "@types/node": "^20",
+    "@types/pdfkit": "0.17.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "prisma": "^7.10.1",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.1": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.1": true
+  }
+}

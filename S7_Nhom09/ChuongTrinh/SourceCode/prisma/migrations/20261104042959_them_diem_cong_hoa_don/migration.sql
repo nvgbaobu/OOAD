@@ -1,0 +1,22 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- AlterTable
+ALTER TABLE [dbo].[HoaDon] ADD [diemCong] INT NOT NULL CONSTRAINT [HoaDon_diemCong_df] DEFAULT 0;
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH
+
+-- CHECK (thêm tay)
+EXEC(N'ALTER TABLE [dbo].[HoaDon] ADD CONSTRAINT [CK_HoaDon_diem] CHECK ([diemSuDung] >= 0 AND [diemCong] >= 0)');

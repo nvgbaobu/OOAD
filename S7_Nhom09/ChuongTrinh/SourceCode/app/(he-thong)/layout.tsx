@@ -1,0 +1,37 @@
+import Link from "next/link";
+import { yeuCauDangNhap } from "@/lib/auth/dal";
+import { posService } from "@/lib/services/posService";
+import NutDangXuat from "./NutDangXuat";
+
+// Khung chung cho các trang sau đăng nhập. Mỗi page vẫn tự gọi yeuCauDangNhap(<vai trò>) để kiểm quyền.
+export default async function LayoutHeThong({ children }: LayoutProps<"/">) {
+  const nd = await yeuCauDangNhap();
+  const soSachDangLap = await posService.soSachDonDangLap(nd.maTK);
+
+  return (
+    <div className="flex min-h-full flex-1 flex-col">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-white px-4 py-2 whitespace-nowrap print:hidden">
+        <span className="font-bold">Nhà sách</span>
+        <nav className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          {nd.vaiTro === "ADMIN" && <Link href="/dashboard" className="hover:underline">Dashboard</Link>}
+          {nd.vaiTro === "ADMIN" && <Link href="/bao-cao" className="hover:underline">Báo cáo</Link>}
+          <Link href="/pos" className="hover:underline">Bán hàng</Link>
+          <Link href="/hoa-don" className="hover:underline">Hóa đơn</Link>
+          <Link href="/khach-hang" className="hover:underline">Khách hàng</Link>
+          <Link href="/khuyen-mai" className="hover:underline">Khuyến mãi</Link>
+          <Link href="/sach" className="hover:underline">Sách</Link>
+          <Link href="/kho" className="hover:underline">Kho</Link>
+          {nd.vaiTro === "ADMIN" && <Link href="/nha-cung-cap" className="hover:underline">Nhà cung cấp</Link>}
+          {nd.vaiTro === "ADMIN" && <Link href="/cai-dat" className="hover:underline">Cài đặt</Link>}
+        </nav>
+        <div className="ml-auto flex items-center gap-3 text-sm">
+          <Link href="/ca-nhan" className="hover:underline" title="Tài khoản của tôi – đổi mật khẩu">
+            {nd.hoTen} <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{nd.vaiTro === "ADMIN" ? "Quản trị" : "Nhân viên"}</span>
+          </Link>
+          <NutDangXuat soSachDangLap={soSachDangLap} />
+        </div>
+      </header>
+      <main className="flex-1 bg-gray-50 p-4 print:bg-white print:p-0">{children}</main>
+    </div>
+  );
+}
