@@ -75,6 +75,16 @@ async function main() {
   await sachService.xoaTheLoai(tl.maTL, admin);
   kiemTra(!(await prisma.theLoai.findUnique({ where: { maTL: tl.maTL } })), "xóa thể loại chưa có sách");
 
+  console.log("6. Thiết lập định mức nhiều sách (UC4.2)");
+  const hai = await prisma.sach.findMany({ where: { trangThai: "DANG_BAN" }, orderBy: { maSach: "asc" }, take: 2 });
+  await phaiLoi(() => sachService.datDinhMuc([], "10", admin), null, "Chọn ít nhất 1");
+  await phaiLoi(() => sachService.datDinhMuc([String(hai[0].maSach)], "-1", admin), "dinhMuc", "0 đến 10.000");
+  await phaiLoi(() => sachService.datDinhMuc([String(hai[0].maSach)], "2.5", admin), "dinhMuc", "0 đến 10.000");
+  const soDat = await sachService.datDinhMuc(hai.map((s) => String(s.maSach)), "12", admin);
+  const sau = await prisma.sach.findMany({ where: { maSach: { in: hai.map((s) => s.maSach) } } });
+  kiemTra(soDat === 2 && sau.every((s) => s.dinhMucToiThieu === 12), "đặt định mức 12 cho 2 sách cùng lúc");
+  kiemTra(!!(await prisma.nhatKyHeThong.findFirst({ where: { module: "SACH", hanhDong: "DAT_DINH_MUC" } })), "ghi nhật ký DAT_DINH_MUC");
+
   console.log(loi ? `\n✘ ${loi} kiểm tra thất bại` : "\n✔ Tất cả kiểm tra đạt");
   process.exitCode = loi ? 1 : 0;
 }

@@ -23,6 +23,7 @@ export default async function TrangKho() {
         <Link href="/kho/phieu-nhap/tao" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">+ Lập phiếu nhập</Link>
         <Link href="/kho/kiem-ke/tao" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">+ Lập phiếu kiểm kê</Link>
         <Link href="/kho/xuat-huy/tao" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">+ Lập phiếu xuất hủy</Link>
+        {nd.vaiTro === "ADMIN" && <Link href="/kho/dinh-muc" className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50">Thiết lập định mức</Link>}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

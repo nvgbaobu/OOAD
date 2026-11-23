@@ -48,3 +48,15 @@ export async function xoaTheLoai(_: KetQuaForm, fd: FormData): Promise<KetQuaFor
   if (!kq) refresh();
   return kq;
 }
+
+/** UC4.2 – Thiết lập định mức cho các sách được chọn (chỉ Admin). */
+export async function datDinhMuc(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> {
+  const nd = await yeuCauDangNhap("ADMIN");
+  let soSach = 0;
+  const kq = await batLoiNghiepVu(async () => {
+    soSach = await sachService.datDinhMuc(fd.getAll("maSach").map(String), String(fd.get("dinhMuc") ?? ""), nd.maTK);
+  }, { dinhMuc: String(fd.get("dinhMuc") ?? "") });
+  if (kq) return kq;
+  refresh();
+  return { thongBao: `Đã đặt định mức ${String(fd.get("dinhMuc")).trim()} cho ${soSach} đầu sách` };
+}

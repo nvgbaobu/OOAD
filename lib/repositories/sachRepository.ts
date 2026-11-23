@@ -44,6 +44,10 @@ export const sachRepository = {
       take: gioiHan,
     }),
 
+  /** Đặt định mức tối thiểu cho nhiều sách cùng lúc (UC4.2). Trả về số sách đã cập nhật. */
+  datDinhMuc: (maSachs: number[], dinhMuc: number) =>
+    prisma.sach.updateMany({ where: { maSach: { in: maSachs } }, data: { dinhMucToiThieu: dinhMuc } }).then((r) => r.count),
+
   timTheoMa: (db: Db, maSach: number) => db.sach.findUnique({ where: { maSach }, include: { theLoai: true } }),
 
   /** Tăng tạm giữ nếu còn đủ hàng bán được. Trả về true nếu thành công. */

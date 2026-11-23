@@ -106,6 +106,19 @@ export const sachService = {
 
   // ───────── Thể loại ─────────
 
+  /** UC4.2 – Thiết lập định mức cho một hoặc nhiều sách (chỉ Admin). */
+  async datDinhMuc(maSachTho: string[], dinhMucTho: string, maTK: number) {
+    const maSachs = [...new Set(maSachTho.map(Number))];
+    if (maSachs.length === 0 || maSachs.some((m) => !Number.isInteger(m) || m <= 0))
+      throw new LoiNghiepVu("Chọn ít nhất 1 cuốn sách");
+    const dinhMuc = dinhMucTho.trim() === "" ? NaN : Number(dinhMucTho);
+    if (!Number.isInteger(dinhMuc) || dinhMuc < 0 || dinhMuc > 10000)
+      throw new LoiNghiepVu("Định mức phải là số nguyên từ 0 đến 10.000", { dinhMuc: "Số nguyên từ 0 đến 10.000" });
+    const soSach = await sachRepository.datDinhMuc(maSachs, dinhMuc);
+    await nhatKyRepository.ghi({ maTK, module: "SACH", hanhDong: "DAT_DINH_MUC", noiDung: `Định mức ${dinhMuc} cho ${soSach} sách: #${maSachs.join(", #")}` });
+    return soSach;
+  },
+
   danhSachTheLoai: () => theLoaiRepository.tatCa(),
   danhSachTheLoaiKemSoSach: () => theLoaiRepository.tatCaKemSoSach(),
 

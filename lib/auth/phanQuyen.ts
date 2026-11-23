@@ -10,6 +10,7 @@ export const CHI_ADMIN: RegExp[] = [
   /^\/khuyen-mai\/.+/, // /khuyen-mai (danh sách) Staff xem được; thêm/sửa mã, combo: chỉ Admin
   /^\/nha-cung-cap(\/|$)/, // Staff chỉ chọn NCC khi lập phiếu nhập, không quản lý NCC
   /^\/cai-dat(\/|$)/, // cấu hình, tài khoản, nhật ký, sao lưu (đổi mật khẩu cá nhân ở /ca-nhan – mọi người dùng)
+  /^\/kho\/dinh-muc(\/|$)/, // UC4.2 thiết lập định mức tồn kho
 ];
 
 export const trangChuTheoVaiTro = (vaiTro: VaiTro) => (vaiTro === "ADMIN" ? "/dashboard" : "/pos");
