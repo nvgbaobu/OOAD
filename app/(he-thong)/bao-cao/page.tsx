@@ -47,6 +47,8 @@ export default async function TrangBaoCao({ searchParams }: PageProps<"/bao-cao"
         <h1 className="mr-auto text-lg font-semibold">Báo cáo doanh thu <span className="text-sm font-normal text-gray-500">{ngay(k.tu)} – {ngay(new Date(k.den.getTime() - 1))}</span></h1>
         <a href={`/bao-cao/excel?tuNgay=${k.tuNgay}&denNgay=${k.denNgay}`} download
           className="rounded bg-green-700 px-3 py-1.5 text-sm text-white hover:bg-green-800">⬇ Xuất Excel</a>
+        <a href={`/bao-cao/pdf?tuNgay=${k.tuNgay}&denNgay=${k.denNgay}`} download
+          className="rounded bg-red-700 px-3 py-1.5 text-sm text-white hover:bg-red-800">⬇ Xuất PDF</a>
       </div>
 
       <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-white p-3">

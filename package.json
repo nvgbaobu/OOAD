@@ -27,6 +27,7 @@
     "exceljs": "^4.4.0",
     "jose": "^6.2.15",
     "next": "16.4.5",
+    "pdfkit": "0.17.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1"
@@ -35,6 +36,7 @@
     "@tailwindcss/turbopack": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
+    "@types/pdfkit": "0.17.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

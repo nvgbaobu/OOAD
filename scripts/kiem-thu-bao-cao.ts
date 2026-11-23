@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import { prisma } from "../lib/prisma";
 import { baoCaoService, docKhoangNgay, khoangNgay } from "../lib/services/baoCaoService";
 import { taoFileExcelBaoCao } from "../lib/services/xuatExcelBaoCao";
+import { taoFilePdfBaoCao } from "../lib/services/xuatPdfBaoCao";
 import { posService } from "../lib/services/posService";
 import { hoaDonService } from "../lib/services/hoaDonService";
 import { ngayInput } from "../lib/dinhDang";
@@ -68,6 +69,10 @@ async function main() {
   kiemTra(wsHD.rowCount - 1 === bc.tong.soHoaDon + bc.tong.soHoaDonHuy + 1, `sheet Hóa đơn: ${wsHD.rowCount - 1} dòng (gồm HĐ đã hủy)`);
   const o = wsHD.getRow(wsHD.rowCount).getCell(2).value as Date;
   kiemTra(o instanceof Date && o.getUTCHours() === hd.thoiGianTao.getHours(), "giờ trong Excel = giờ cửa hàng (đã bù múi giờ)");
+
+  console.log("6. Xuất PDF (UC9.3)");
+  const pdf = await taoFilePdfBaoCao(k30, "Kiểm thử");
+  kiemTra(pdf.subarray(0, 5).toString() === "%PDF-" && pdf.length > 5000, `file PDF hợp lệ (${pdf.length} byte)`);
 
   console.log(loi ? `\n✘ ${loi} kiểm tra thất bại` : "\n✔ Tất cả kiểm tra đạt");
   process.exitCode = loi ? 1 : 0;
