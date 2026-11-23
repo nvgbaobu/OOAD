@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
   // pdfkit đọc file font .afm từ node_modules lúc chạy → không bundle (UC9.3 xuất PDF)
   serverExternalPackages: ["pdfkit"],
+  // UC10.4: tải file sao lưu .bak lên để phục hồi (mặc định server action chỉ nhận 1MB)
+  experimental: { serverActions: { bodySizeLimit: "500mb" }, proxyClientMaxBodySize: "500mb" },
   // font tiếng Việt cho PDF nằm ở lib/fonts → kèm vào bản build standalone/route
   outputFileTracingIncludes: { "/bao-cao/pdf": ["./lib/fonts/**"] },
   turbopack: {

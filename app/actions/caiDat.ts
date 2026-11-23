@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
 import { caiDatService } from "@/lib/services/caiDatService";
 import { taiKhoanService } from "@/lib/services/taiKhoanService";
+import { phucHoiService } from "@/lib/services/phucHoiService";
 import { batLoiNghiepVu, docForm, type KetQuaForm } from "@/lib/ketQuaForm";
 
 const chuoi = (fd: FormData, k: string) => String(fd.get(k) ?? "");
@@ -63,4 +64,25 @@ export async function doiMatKhau(_: KetQuaForm, fd: FormData): Promise<KetQuaFor
   const nd = await yeuCauDangNhap("ADMIN", "STAFF");
   const kq = await batLoiNghiepVu(() => taiKhoanService.doiMatKhau(nd.maTK, chuoi(fd, "matKhauCu"), chuoi(fd, "matKhauMoi"), chuoi(fd, "nhapLai")));
   return kq ?? { thongBao: "Đã đổi mật khẩu" };
+}
+
+/** UC10.4 – Phục hồi CSDL từ bản sao lưu đã có (chỉ Admin). */
+export async function phucHoiTuBanSaoLuu(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> {
+  const nd = await yeuCauDangNhap("ADMIN");
+  let anToan = "";
+  const kq = await batLoiNghiepVu(async () => { anToan = (await phucHoiService.tuBanSaoLuu(Number(fd.get("maBackup")), nd.maTK)).anToan; });
+  if (kq) return kq;
+  refresh();
+  return { thongBao: `Phục hồi thành công. Dữ liệu trước khi phục hồi đã được lưu tại ${anToan}` };
+}
+
+/** UC10.4 – Phục hồi CSDL từ file .bak tải lên (chỉ Admin). */
+export async function phucHoiTuFile(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> {
+  const nd = await yeuCauDangNhap("ADMIN");
+  const f = fd.get("file");
+  let anToan = "";
+  const kq = await batLoiNghiepVu(async () => { anToan = (await phucHoiService.tuFileTaiLen(f instanceof File ? f : null, nd.maTK)).anToan; });
+  if (kq) return kq;
+  refresh();
+  return { thongBao: `Phục hồi thành công. Dữ liệu trước khi phục hồi đã được lưu tại ${anToan}` };
 }

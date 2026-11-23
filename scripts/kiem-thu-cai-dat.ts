@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { prisma } from "../lib/prisma";
 import { LoiNghiepVu } from "../lib/loi";
 import { caiDatService, type FormCauHinh } from "../lib/services/caiDatService";
+import { phucHoiService } from "../lib/services/phucHoiService";
 import { taiKhoanService } from "../lib/services/taiKhoanService";
 import { authService } from "../lib/services/authService";
 import { posService, LY_DO_HUY } from "../lib/services/posService";
@@ -98,6 +99,20 @@ async function main() {
   const bs = await caiDatService.saoLuu(admin);
   kiemTra(Number(bs.kichThuoc) > 0 && /QuanLyBanSach_\d{8}_\d{6}\.bak$/.test(bs.duongDanFile), `tạo ${bs.duongDanFile} (${Number(bs.kichThuoc).toLocaleString("vi-VN")} byte)`);
   kiemTra((await caiDatService.danhSachSaoLuu())[0]?.maBackup === bs.maBackup, "ghi bảng BanSaoLuu");
+
+  console.log("8. Phục hồi từ bản sao lưu (UC10.4)");
+  await phaiLoi(() => phucHoiService.tuBanSaoLuu(999999, admin), null, "Không tìm thấy");
+  const gia = await prisma.banSaoLuu.create({ data: { maTK: admin, thoiGian: new Date(), duongDanFile: "/var/opt/mssql/data/khong_ton_tai.bak", kichThuoc: BigInt(0) } });
+  await phaiLoi(() => phucHoiService.tuBanSaoLuu(gia.maBackup, admin), null, "không hợp lệ");
+  await phaiLoi(() => phucHoiService.tuFileTaiLen(null, admin), null, process.env.THU_MUC_TAI_LEN_APP ? "Chọn file" : "Chưa cấu hình");
+  const tlTam = await prisma.theLoai.create({ data: { tenTL: "Thể loại tạm sau sao lưu" } });
+  const kqPH = await phucHoiService.tuBanSaoLuu(bs.maBackup, admin);
+  kiemTra(!(await prisma.theLoai.findUnique({ where: { maTL: tlTam.maTL } })), "dữ liệu thêm sau thời điểm sao lưu đã mất (CSDL về đúng bản sao lưu)");
+  kiemTra(/_truocPhucHoi\.bak$/.test(kqPH.anToan) && !!(await prisma.banSaoLuu.findFirst({ where: { duongDanFile: kqPH.anToan } })), `tự sao lưu trước khi phục hồi: ${kqPH.anToan}`);
+  kiemTra(!!(await prisma.nhatKyHeThong.findFirst({ where: { module: "CAI_DAT", hanhDong: "PHUC_HOI" } })), "ghi nhật ký PHUC_HOI vào CSDL sau phục hồi");
+  try {
+    execFileSync("docker", ["exec", "qlbs-mssql", "rm", "-f", kqPH.anToan]);
+  } catch { /* bỏ qua */ }
   try {
     execFileSync("docker", ["exec", "qlbs-mssql", "rm", "-f", bs.duongDanFile]); // dọn file thử
   } catch { console.log("  (không xóa được file .bak thử – bỏ qua)"); }

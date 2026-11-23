@@ -64,13 +64,13 @@ Dữ liệu mẫu: 129 đầu sách / 12 thể loại (30 sách mẫu + 99 sách
 | 1 | Đăng nhập / đăng xuất, đổi mật khẩu cá nhân, quên mật khẩu bằng OTP (giả lập SMS) | `/dang-nhap`, `/quen-mat-khau`, `/ca-nhan` | Tất cả |
 | 2 | Bán hàng tại quầy: giỏ hàng (tạm giữ kho), khách thành viên, combo, mã giảm giá, đổi điểm, VAT, 3 phương thức thanh toán, in hóa đơn | `/pos` | Tất cả |
 | 3 | Quản lý sách, thể loại | `/sach` | Staff xem, Admin sửa |
-| 4 | Tồn kho, phiếu kiểm kê, phiếu xuất hủy (lập → duyệt) | `/kho` | Staff lập, Admin duyệt |
-| 5 | Nhà cung cấp, phiếu nhập (lập → duyệt) | `/nha-cung-cap`, `/kho/phieu-nhap` | NCC: Admin; phiếu: Staff lập, Admin duyệt |
+| 4 | Tồn kho, thiết lập định mức nhiều sách, phiếu kiểm kê, phiếu xuất hủy (lập → duyệt) | `/kho` | Staff lập, Admin duyệt |
+| 5 | Nhà cung cấp, phiếu nhập (lập – tạo nhanh sách mới → sửa SL thực nhận → duyệt) | `/nha-cung-cap`, `/kho/phieu-nhap` | NCC: Admin; phiếu: Staff lập, Admin duyệt |
 | 6 | Hóa đơn: tra cứu, xem/in, hủy hóa đơn đã thanh toán (hoàn kho, điểm, mã) | `/hoa-don` | Staff xem HĐ của mình, Admin tất cả + hủy |
 | 7 | Khách hàng, lịch sử tích điểm, hạng thành viên | `/khach-hang` | Staff + Admin; cấu hình hạng: Admin |
 | 8 | Khuyến mãi: mã giảm giá, combo sách | `/khuyen-mai` | Staff xem, Admin sửa |
-| 9 | Dashboard, báo cáo doanh thu, xuất Excel | `/dashboard`, `/bao-cao` | Admin |
-| 10 | Cài đặt: cửa hàng/tích điểm/thanh toán, tài khoản, nhật ký hệ thống, sao lưu CSDL | `/cai-dat` | Admin |
+| 9 | Dashboard, báo cáo doanh thu, xuất Excel / PDF | `/dashboard`, `/bao-cao` | Admin |
+| 10 | Cài đặt: cửa hàng/tích điểm/thanh toán, tài khoản, nhật ký hệ thống, sao lưu & phục hồi CSDL | `/cai-dat` | Admin |
 
 Thứ tự tính tiền: **Tạm tính → Combo → Ưu đãi hạng → Mã giảm giá → Đổi điểm → + VAT 5% = Tổng tiền**
 (cài đặt duy nhất ở `lib/services/tinhTienHoaDon.ts`). VAT một mức 5% cho mọi hóa đơn; điểm cộng = tổng tiền ÷ tỷ lệ quy đổi (suy ra, không lưu riêng).
@@ -116,7 +116,10 @@ proxy.ts                 chuyển hướng theo đăng nhập / vai trò
 
 ## Sao lưu & phục hồi CSDL
 
-Sao lưu: **Cài đặt → Sao lưu dữ liệu** (file `.bak` trong volume Docker `mssql_data`). Phục hồi làm thủ công (cần dừng app):
+- **Sao lưu**: Cài đặt → Sao lưu dữ liệu → "Sao lưu ngay" (file `.bak` trong volume Docker `mssql_data`).
+- **Phục hồi trên giao diện** (UC10.4): bấm "Phục hồi" ở bản sao lưu cần quay về, hoặc tải file `.bak` lên (chỉ khi chạy bằng Docker Compose – volume dùng chung `sao_luu_tai_len`).
+  Hệ thống kiểm tra file, **tự sao lưu dữ liệu hiện tại trước** (`..._truocPhucHoi.bak`) rồi mới ghi đè; mọi người dùng đang thao tác bị ngắt kết nối.
+- Phục hồi thủ công (khi ứng dụng không chạy được):
 
 ```bash
 docker exec -it qlbs-mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q \

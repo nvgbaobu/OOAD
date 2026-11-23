@@ -3,7 +3,7 @@
 // - Tích điểm: tyLeQuyDoiDiem (số tiền / 1 điểm) 1.000–1.000.000đ; giaTriMotDiem (1 điểm = ? đồng) phải NHỎ HƠN
 //   tyLeQuyDoiDiem (nếu không khách được hoàn ≥ 100% tiền bằng điểm). Phải bật ít nhất 1 phương thức thanh toán.
 // - Sao lưu: BACKUP DATABASE ra file .bak trong thư mục dữ liệu của SQL Server (volume Docker mssql_data), ghi BanSaoLuu.
-//   Phục hồi làm thủ công bằng sqlcmd (xem README, mục "Sao lưu & phục hồi CSDL") – không làm trên giao diện vì phải ngắt mọi kết nối.
+//   Phục hồi: xem lib/services/phucHoiService.ts (UC10.4 – chọn bản sao lưu hoặc tải file .bak lên).
 import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
@@ -81,12 +81,14 @@ export const caiDatService = {
   // ───────── Sao lưu ─────────
   danhSachSaoLuu: () => prisma.banSaoLuu.findMany({ include: { taiKhoan: { select: { hoTen: true } } }, orderBy: { maBackup: "desc" }, take: 50 }),
 
-  async saoLuu(maTK: number) {
+  /** hauTo: phần thêm vào tên file (chỉ chữ/số/_), vd "_truocPhucHoi" cho bản sao lưu an toàn khi phục hồi. */
+  async saoLuu(maTK: number, hauTo = "") {
+    if (!/^\w*$/.test(hauTo)) throw new Error("Hậu tố tên file không hợp lệ");
     const db = process.env.DB_NAME ?? "QuanLyBanSach";
     if (!/^\w+$/.test(db)) throw new Error("DB_NAME không hợp lệ");
     const luc = new Date();
     const p = (n: number) => String(n).padStart(2, "0");
-    const tenFile = `${db}_${luc.getFullYear()}${p(luc.getMonth() + 1)}${p(luc.getDate())}_${p(luc.getHours())}${p(luc.getMinutes())}${p(luc.getSeconds())}.bak`;
+    const tenFile = `${db}_${luc.getFullYear()}${p(luc.getMonth() + 1)}${p(luc.getDate())}_${p(luc.getHours())}${p(luc.getMinutes())}${p(luc.getSeconds())}${hauTo}.bak`;
     const duongDan = `${THU_MUC_SAO_LUU}/${tenFile}`;
     // Tên CSDL/đường dẫn tự sinh (chỉ chữ, số, _), không lấy từ người dùng → ghép chuỗi an toàn. BACKUP không chạy được trong transaction.
     try {

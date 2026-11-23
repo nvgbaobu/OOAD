@@ -12,6 +12,7 @@ services:
       - "1433:1433"
     volumes:
       - mssql_data:/var/opt/mssql
+      - sao_luu_tai_len:/var/opt/mssql/tai-len   # file .bak tải lên để phục hồi (UC10.4) – SQL Server chỉ đọc
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
@@ -36,9 +37,15 @@ services:
       SESSION_SECRET: "${SESSION_SECRET:-doi-chuoi-nay-bang-openssl-rand-base64-32}"
       COOKIE_SECURE: "false"
       TZ: Asia/Ho_Chi_Minh
+      # UC10.4 – thư mục dùng chung với SQL Server để phục hồi từ file .bak tải lên
+      THU_MUC_TAI_LEN_APP: /sao-luu-tai-len
+      THU_MUC_TAI_LEN_SQL: /var/opt/mssql/tai-len
+    volumes:
+      - sao_luu_tai_len:/sao-luu-tai-len
     ports:
       - "3000:3000"
     restart: unless-stopped
 
 volumes:
   mssql_data:
+  sao_luu_tai_len:
