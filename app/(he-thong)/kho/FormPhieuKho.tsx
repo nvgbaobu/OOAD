@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import type { KetQuaForm } from "@/lib/ketQuaForm";
+import { taoNhanhSach } from "@/app/actions/kho";
 
 export type SachChon = {
   maSach: number; tenSach: string; isbn: string; viTriKe: string | null;
@@ -24,14 +25,17 @@ const tien = (n: number) => `${n.toLocaleString("vi-VN")}đ`;
  * Các dòng giữ trong state nên báo lỗi không làm mất dữ liệu đã nhập.
  */
 export default function FormPhieuKho({
-  loai, sachs, action, nhaCungCaps = [], chonSan = [],
+  loai, sachs: sachsBanDau, action, nhaCungCaps = [], chonSan = [], theLoais = [],
 }: {
   loai: Loai;
   sachs: SachChon[];
   action: (state: KetQuaForm, fd: FormData) => Promise<KetQuaForm>;
   nhaCungCaps?: { maNCC: number; tenNCC: string }[];
   chonSan?: number[]; // maSach thêm sẵn khi mở form (vd: nhập hàng cho sách sắp hết)
+  theLoais?: { maTL: number; tenTL: string }[]; // phiếu nhập: để tạo nhanh sách mới (UC7.2 – 3a)
 }) {
+  const [sachMoi, setSachMoi] = useState<SachChon[]>([]);
+  const sachs = useMemo(() => [...sachsBanDau, ...sachMoi], [sachsBanDau, sachMoi]);
   const kiemKe = loai === "kiem-ke";
   const nhap = loai === "phieu-nhap";
   const dongMoi = (s: SachChon): Dong => ({
@@ -49,7 +53,30 @@ export default function FormPhieuKho({
   const [tuKhoa, setTuKhoa] = useState("");
   const [chon, setChon] = useState("");
   const loi = state?.loiTruong ?? {};
-
+  const [moTaoNhanh, setMoTaoNhanh] = useState(false);
+  const [kqTao, taoAction, dangTao] = useActionState(async (truoc: KetQuaForm, fd: FormData) => {
+    const kq = await taoNhanhSach(truoc, fd);
+    const d = kq?.thongBao ? kq.duLieu : undefined;
+    if (d) {
+      const s: SachChon = {
+        maSach: Number(d.maSach), tenSach: d.tenSach, isbn: d.isbn, viTriKe: null, soLuongTon: 0, soLuongTamGiu: 0,
+        trangThai: "DANG_BAN", dinhMucToiThieu: 5, giaNhap: Number(d.giaNhap), giaBan: Number(d.giaBan),
+      };
+      setSachMoi((c) => [...c, s]);
+      setDong((c) => [...c, { maSach: s.maSach, soLuong: "10", lyDo: "", giaNhap: String(s.giaNhap) }]);
+      setMoTaoNhanh(false);
+    }
+    return kq;
+  }, undefined);
+  const loiTao = kqTao?.loiTruong ?? {};
+  const oTao = (ten: string, nhan: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+    <label className="text-sm">
+      <span className="mb-1 block">{nhan}<span className="text-red-600"> *</span></span>
+      <input form="form-tao-nhanh-sach" name={ten} defaultValue={kqTao?.loi ? kqTao.duLieu?.[ten] : ""} aria-invalid={!!loiTao[ten]}
+        className={`${oNhap} w-full`} {...props} />
+      {loiTao[ten] && <span className="text-xs text-red-600">{loiTao[ten]}</span>}
+    </label>
+  );
   const daCo = new Set(dong.map((d) => d.maSach));
   const coTheChon = sachs.filter((s) =>
     !daCo.has(s.maSach) && (kiemKe || (nhap ? s.trangThai === "DANG_BAN" : s.soLuongTon - s.soLuongTamGiu > 0)));
@@ -63,6 +90,8 @@ export default function FormPhieuKho({
   const xoa = (i: number) => setDong((cu) => cu.filter((_, j) => j !== i));
 
   return (
+    <>
+    {nhap && <form id="form-tao-nhanh-sach" action={taoAction} />}
     <form action={formAction} className="space-y-3">
       {state?.loi && <p role="alert" className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{state.loi}</p>}
 
@@ -108,7 +137,38 @@ export default function FormPhieuKho({
             + Thêm sách sắp hết
           </button>
         )}
+        {nhap && theLoais.length > 0 && (
+          <button type="button" onClick={() => setMoTaoNhanh((m) => !m)} className="rounded border border-blue-600 px-3 py-1 text-sm text-blue-700 hover:bg-blue-50">
+            + Sách mới (lần đầu kinh doanh)
+          </button>
+        )}
+        {kqTao?.thongBao && <p role="status" className="basis-full text-sm text-green-700">✓ {kqTao.thongBao}</p>}
       </div>
+
+      {nhap && moTaoNhanh && (
+        <fieldset disabled={dangTao} className="grid gap-2 rounded-lg border border-blue-300 bg-blue-50 p-3 sm:grid-cols-3">
+          <legend className="px-1 text-sm font-medium text-blue-900">Tạo nhanh sách mới – sách được thêm vào phiếu với tồn kho 0, bổ sung thông tin khác ở Quản lý sách</legend>
+          {oTao("isbn", "ISBN", { placeholder: "10 hoặc 13 số" })}
+          {oTao("tenSach", "Tên sách")}
+          {oTao("tacGia", "Tác giả")}
+          <label className="text-sm">
+            <span className="mb-1 block">Thể loại<span className="text-red-600"> *</span></span>
+            <select form="form-tao-nhanh-sach" name="maTL" defaultValue={kqTao?.loi ? kqTao.duLieu?.maTL : ""} aria-invalid={!!loiTao.maTL} className={`${oNhap} w-full`}>
+              <option value="">— Chọn thể loại —</option>
+              {theLoais.map((t) => <option key={t.maTL} value={t.maTL}>{t.tenTL}</option>)}
+            </select>
+            {loiTao.maTL && <span className="text-xs text-red-600">{loiTao.maTL}</span>}
+          </label>
+          {oTao("giaNhap", "Giá nhập (đ)", { type: "number", min: 0, step: 1 })}
+          {oTao("giaBan", "Giá bán (đ)", { type: "number", min: 1, step: 1 })}
+          <div className="flex items-center gap-2 sm:col-span-3">
+            <button type="submit" form="form-tao-nhanh-sach" className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">
+              {dangTao ? "Đang tạo..." : "Tạo sách và thêm vào phiếu"}
+            </button>
+            {kqTao?.loi && <span role="alert" className="text-sm text-red-600">{kqTao.loi}</span>}
+          </div>
+        </fieldset>
+      )}
 
       <div className="overflow-x-auto rounded-lg border bg-white">
         <table className="w-full min-w-[760px] text-sm [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2">
@@ -201,5 +261,6 @@ export default function FormPhieuKho({
         <Link href={`/kho/${loai}`} className="rounded border px-4 py-2 text-sm hover:bg-gray-50">Hủy</Link>
       </div>
     </form>
+    </>
   );
 }

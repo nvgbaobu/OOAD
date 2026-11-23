@@ -54,6 +54,17 @@ async function main() {
   kiemTra(Number(pn.tongTien) === 20 * 42000 + 10 * 50000 && pn.trangThai === "CHO_DUYET", `tổng tiền ${Number(pn.tongTien)}, chờ duyệt`);
   kiemTra((await sach(hoangTuBe.isbn)).soLuongTon === 2, "lập phiếu chưa cộng kho");
 
+  console.log("2b. Tạo nhanh sách mới trên phiếu nhập (UC7.2 – 3a)");
+  const maTLNhanh = String((await prisma.theLoai.findFirstOrThrow()).maTL);
+  const moiNhanh = { isbn: "978-0-00-000001-1", tenSach: "Sách thử tạo nhanh", tacGia: "Tác giả thử", maTL: maTLNhanh, giaNhap: "30000", giaBan: "50000" };
+  await phaiLoi(() => sachService.taoNhanh({ ...moiNhanh, isbn: hoangTuBe.isbn }, staff), "isbn", "ISBN đã có");
+  await phaiLoi(() => sachService.taoNhanh({ ...moiNhanh, giaBan: "20000" }, staff), "giaBan", "≥ giá nhập");
+  const sNhanh = await sachService.taoNhanh(moiNhanh, staff);
+  kiemTra(sNhanh.soLuongTon === 0 && sNhanh.trangThai === "DANG_BAN" && sNhanh.dinhMucToiThieu === 5, "Staff tạo nhanh sách: tồn 0, đang bán");
+  const pnNhanh = await khoService.lapPhieuNhap(String(dongA.maNCC), "", [d(sNhanh, 15, 30000)], staff);
+  kiemTra(pnNhanh.trangThai === "CHO_DUYET", "lập phiếu nhập được ngay với sách vừa tạo");
+  await khoService.tuChoiPhieuNhap(pnNhanh.maPN, "Phiếu thử", admin);
+
   console.log("3. Duyệt phiếu nhập");
   await khoService.duyetPhieuNhap(pn.maPN, admin);
   const htb = await sach(hoangTuBe.isbn);

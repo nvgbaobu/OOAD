@@ -106,6 +106,14 @@ export const sachService = {
 
   // ───────── Thể loại ─────────
 
+  /** UC7.2 3a – Tạo nhanh sách lần đầu kinh doanh ngay trên form lập phiếu nhập (Staff/Admin).
+   *  Chỉ các ô bắt buộc; ô khác để mặc định (định mức 5, tồn 0). Dùng chung kiểm tra với tao(). */
+  async taoNhanh(f: Pick<FormSach, "isbn" | "tenSach" | "tacGia" | "maTL" | "giaNhap" | "giaBan">, maTK: number) {
+    const sach = await sachService.tao({ ...f, nhaXuatBan: "", namXB: "", viTriKe: "", dinhMucToiThieu: "", hinhAnh: "" }, maTK);
+    await nhatKyRepository.ghi({ maTK, module: "SACH", hanhDong: "THEM_NHANH", noiDung: `#${sach.maSach} ${sach.tenSach} – tạo nhanh khi lập phiếu nhập` });
+    return sach;
+  },
+
   /** UC4.2 – Thiết lập định mức cho một hoặc nhiều sách (chỉ Admin). */
   async datDinhMuc(maSachTho: string[], dinhMucTho: string, maTK: number) {
     const maSachs = [...new Set(maSachTho.map(Number))];

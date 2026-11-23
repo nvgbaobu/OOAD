@@ -4,7 +4,8 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
 import { khoService, type DongPhieuTho } from "@/lib/services/khoService";
-import { batLoiNghiepVu, type KetQuaForm } from "@/lib/ketQuaForm";
+import { batLoiNghiepVu, docForm, type KetQuaForm } from "@/lib/ketQuaForm";
+import { sachService } from "@/lib/services/sachService";
 
 export type LoaiPhieu = "phieu-nhap" | "kiem-ke" | "xuat-huy";
 
@@ -49,4 +50,21 @@ export async function tuChoiPhieu(loai: LoaiPhieu, _: KetQuaForm, fd: FormData):
   const kq = await batLoiNghiepVu(() => tuChoi(ma, lyDo, nd.maTK));
   if (!kq) refresh();
   return kq;
+}
+
+/** UC7.2 3a – Tạo nhanh sách mới ngay trên form lập phiếu nhập (Staff và Admin). Trả về thông tin sách để form thêm vào phiếu. */
+export async function taoNhanhSach(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> {
+  const nd = await yeuCauDangNhap("ADMIN", "STAFF");
+  const f = docForm(fd);
+  const o = (k: string) => f[k] ?? "";
+  let sach: Awaited<ReturnType<typeof sachService.taoNhanh>> | undefined;
+  const kq = await batLoiNghiepVu(async () => {
+    sach = await sachService.taoNhanh(
+      { isbn: o("isbn"), tenSach: o("tenSach"), tacGia: o("tacGia"), maTL: o("maTL"), giaNhap: o("giaNhap"), giaBan: o("giaBan") }, nd.maTK);
+  }, f);
+  if (kq || !sach) return kq;
+  return {
+    thongBao: `Đã tạo sách "${sach.tenSach}" và thêm vào phiếu`,
+    duLieu: { maSach: String(sach.maSach), tenSach: sach.tenSach, isbn: sach.isbn, giaNhap: String(Number(sach.giaNhap)), giaBan: String(Number(sach.giaBan)) },
+  };
 }
