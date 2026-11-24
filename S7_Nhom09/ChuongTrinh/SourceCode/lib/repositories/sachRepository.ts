@@ -30,6 +30,19 @@ export const sachRepository = {
   tao: (data: Prisma.SachUncheckedCreateInput) => prisma.sach.create({ data }),
   capNhat: (maSach: number, data: Prisma.SachUncheckedUpdateInput) => prisma.sach.update({ where: { maSach }, data }),
 
+  /** UC2.4: ngừng kinh doanh chỉ khi không còn cuốn nào bị tạm giữ trong đơn chưa thanh toán.
+   *  UPDATE có điều kiện → không lọt trường hợp quầy khác vừa thêm sách vào giỏ. */
+  async ngungKinhDoanhNeuKhongTamGiu(maSach: number) {
+    const n = await prisma.$executeRaw`
+      UPDATE Sach SET trangThai = N'NGUNG_KINH_DOANH'
+      WHERE maSach = ${maSach} AND trangThai = N'DANG_BAN' AND soLuongTamGiu = 0`;
+    return n === 1;
+  },
+
+  /** Số đơn đang lập (POS chưa thanh toán) có chứa sách. */
+  soDonDangLapChua: (maSach: number) =>
+    prisma.chiTietHoaDon.count({ where: { maSach, hoaDon: { trangThai: "DANG_LAP" } } }),
+
   /** Sách đang bán, tìm theo tên / ISBN / tác giả (POS). */
   timDeBan: (tuKhoa: string, gioiHan = 20) =>
     prisma.sach.findMany({
