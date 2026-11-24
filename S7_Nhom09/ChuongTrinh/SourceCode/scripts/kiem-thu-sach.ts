@@ -44,7 +44,14 @@ async function main() {
 
   console.log("3. Ngừng kinh doanh / mở bán lại");
   const matBiec = await prisma.sach.findUniqueOrThrow({ where: { isbn: "9786042000001" } });
+  // UC2.4 3a: sách đang trong đơn POS chưa thanh toán → không cho ngừng kinh doanh
+  await posService.huyDon(2).catch(() => {});
+  await posService.themSach(2, matBiec.maSach);
+  await phaiLoi(() => sachService.doiTrangThai(matBiec.maSach, "NGUNG_KINH_DOANH", admin), null, "đơn hàng chưa thanh toán");
+  kiemTra((await prisma.sach.findUniqueOrThrow({ where: { maSach: matBiec.maSach } })).trangThai === "DANG_BAN", "bị chặn → sách vẫn đang bán");
+  await posService.huyDon(2);
   await sachService.doiTrangThai(matBiec.maSach, "NGUNG_KINH_DOANH", admin);
+  kiemTra(true, "hủy đơn xong → ngừng kinh doanh được");
   await phaiLoi(() => posService.themSach(2, matBiec.maSach), null, "ngừng kinh doanh");
   kiemTra(!(await posService.timSach("Mắt biếc")).some((s) => s.maSach === matBiec.maSach), "ẩn khỏi tìm kiếm POS");
   await sachService.doiTrangThai(matBiec.maSach, "DANG_BAN", admin);
