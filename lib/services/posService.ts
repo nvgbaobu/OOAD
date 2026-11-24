@@ -78,7 +78,7 @@ async function huyDonNhap(tx: Db, don: { maHD: number; maTK: number }, lyDo: str
  * Dọn dẹp lười (lazy cleanup): hủy mọi đơn DANG_LAP quá hạn. Gọi trước mỗi thao tác POS – không cần job nền.
  * Trả về các đơn vừa bị hủy.
  */
-async function huyDonQuaHan() {
+export async function huyDonQuaHan() {
   const moc = new Date(Date.now() - HAN_DON_NHAP_PHUT * 60_000);
   const quaHan = await prisma.hoaDon.findMany({
     where: { trangThai: "DANG_LAP", thoiGianCapNhat: { lt: moc } },
