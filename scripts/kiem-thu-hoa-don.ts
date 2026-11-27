@@ -43,6 +43,8 @@ async function main() {
   const theoSdt = await hoaDonService.danhSach({ tuKhoa: "0911111111" }, 1, admin);
   kiemTra(theoSdt.hoaDons.some((h) => h.maHD === maHD) && theoSdt.hoaDons.every((h) => h.khachHang?.soDienThoai === "0911111111"), "tìm theo SĐT khách");
   kiemTra((await hoaDonService.danhSach({ tuKhoa: `#${maHD}` }, 1, admin)).hoaDons[0]?.maHD === maHD, "tìm theo số HĐ (#123)");
+  const khoangSai = await hoaDonService.danhSach({ tuNgay: new Date(2026, 10, 20), denNgay: new Date(2026, 10, 10) }, 1, admin);
+  kiemTra(!!khoangSai.loi?.includes("Khoảng thời gian không hợp lệ") && khoangSai.hoaDons.length === 0, "UC5.1 3a: khoảng ngày sai → báo lỗi, không tra cứu");
   const homNay = new Date(); homNay.setHours(0, 0, 0, 0);
   const trongNgay = await hoaDonService.danhSach({ tuNgay: homNay }, 1, admin);
   kiemTra(trongNgay.hoaDons.every((h) => h.thoiGianTao >= homNay) && trongNgay.hoaDons.some((h) => h.maHD === maHD), `lọc từ hôm nay: ${trongNgay.soHoaDon} HĐ`);

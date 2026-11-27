@@ -227,7 +227,7 @@ export const khoService = {
       const conBan = s.soLuongTon - s.soLuongTamGiu;
       const k = `dong.${s.maSach}`;
       if (!Number.isInteger(soLuong) || soLuong <= 0) loi[k] = "Số lượng hủy là số nguyên > 0";
-      else if (soLuong > conBan) loi[k] = `Chỉ còn ${conBan} cuốn có thể xuất hủy${s.soLuongTamGiu ? ` (${s.soLuongTamGiu} đang tạm giữ)` : ""}`;
+      else if (soLuong > conBan) loi[k] = `Số lượng hủy vượt quá tồn kho: chỉ còn ${conBan} cuốn có thể xuất hủy${s.soLuongTamGiu ? ` (${s.soLuongTamGiu} đang tạm giữ)` : ""}`;
       else if (!lyDo) loi[k] = "Nhập lý do hủy";
       else if (lyDo.length > 500) loi[k] = "Lý do tối đa 500 ký tự";
       return { maSach: s.maSach, soLuong, lyDo };

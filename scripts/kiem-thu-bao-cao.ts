@@ -50,7 +50,9 @@ async function main() {
 
   console.log("4. Đọc khoảng ngày");
   const dao = docKhoangNgay("2026-11-10", "2026-11-01");
-  kiemTra(dao.tuNgay === "2026-11-01" && dao.denNgay === "2026-11-10" && ngayInput(dao.den) === "2026-11-11", "ngày đảo ngược → đổi chỗ, đến hết ngày cuối");
+  kiemTra(!!dao.loi?.includes("Khoảng thời gian không hợp lệ"), "UC9.2 2a: ngày bắt đầu sau ngày kết thúc → báo lỗi");
+  const dung = docKhoangNgay("2026-11-01", "2026-11-10");
+  kiemTra(!dung.loi && ngayInput(dung.den) === "2026-11-11", "khoảng hợp lệ → đến hết ngày cuối");
   const dai = docKhoangNgay("2025-01-01", "2026-12-31");
   kiemTra(!!dai.canhBao && dai.denNgay === "2026-01-01", `quá 366 ngày → cắt: ${dai.canhBao}`);
   kiemTra(docKhoangNgay("abc", "").tuNgay === ngayInput(khoangNgay("thangNay").tu), "sai định dạng → tháng này");

@@ -203,7 +203,7 @@ export const posService = {
       const sach = await sachRepository.timTheoMa(tx, maSach);
       if (!sach || sach.trangThai !== "DANG_BAN") throw new LoiPOS("Sách không tồn tại hoặc đã ngừng kinh doanh");
       if (!(await sachRepository.tangTamGiu(tx, maSach, soLuong))) {
-        throw new LoiPOS(`"${sach.tenSach}" chỉ còn ${sach.soLuongTon - sach.soLuongTamGiu} cuốn có thể bán`);
+        throw new LoiPOS(`Vượt quá số lượng tồn: "${sach.tenSach}" chỉ còn ${sach.soLuongTon - sach.soLuongTamGiu} cuốn có thể bán`);
       }
       const don = await layHoacTaoDon(tx, maTK);
       await chamDon(tx, don.maHD);
@@ -238,7 +238,7 @@ export const posService = {
       const chenh = soLuongMoi - dong.soLuong;
       if (chenh > 0 && !(await sachRepository.tangTamGiu(tx, maSach, chenh))) {
         const sach = await sachRepository.timTheoMa(tx, maSach);
-        throw new LoiPOS(`Chỉ còn thêm được ${sach ? sach.soLuongTon - sach.soLuongTamGiu : 0} cuốn`);
+        throw new LoiPOS(`Vượt quá số lượng tồn – chỉ còn thêm được ${sach ? sach.soLuongTon - sach.soLuongTamGiu : 0} cuốn`);
       }
       if (chenh < 0) await sachRepository.giamTamGiu(tx, maSach, -chenh);
       if (soLuongMoi === 0) {
@@ -324,7 +324,9 @@ export const posService = {
   async huyDon(maTK: number) {
     await donDepTruocThaoTac(maTK);
     await prisma.$transaction(async (tx) => {
-      const don = await layDonBatBuoc(tx, maTK);
+      // UC3.3 luồng 2a: chỉ hủy được đơn đang lập (chưa thanh toán)
+      const don = await hoaDonRepository.layDonDangLap(tx, maTK);
+      if (!don) throw new LoiPOS("Không thể hủy đơn hàng này: không có đơn đang lập (đơn đã thanh toán hoặc đã hủy).");
       await huyDonNhap(tx, don, LY_DO_HUY.NHAN_VIEN);
     });
   },
@@ -377,7 +379,7 @@ export const posService = {
 
       if (phuongThucTT === "TIEN_MAT") {
         if (tienKhachDua == null || !Number.isFinite(tienKhachDua)) throw new LoiPOS("Nhập số tiền khách đưa");
-        if (tienKhachDua < tien.tongTien) throw new LoiPOS("Tiền khách đưa chưa đủ");
+        if (tienKhachDua < tien.tongTien) throw new LoiPOS("Số tiền chưa đủ");
       }
 
       // Kho: trừ tồn + giải phóng tạm giữ

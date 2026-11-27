@@ -47,7 +47,7 @@ async function kiemTraSach(f: FormSach, maSachDangSua?: number) {
     loi.namXB = `Năm xuất bản từ 1900 đến ${namNay + 1}`;
   }
   if (!Number.isInteger(maTL) || !(await theLoaiRepository.timTheoMa(maTL))) loi.maTL = "Chọn thể loại";
-  if (!f.giaNhap.trim() || !Number.isFinite(giaNhap) || giaNhap < 0) loi.giaNhap = "Giá nhập là số ≥ 0";
+  if (!f.giaNhap.trim() || !Number.isFinite(giaNhap) || giaNhap <= 0) loi.giaNhap = "Giá nhập là số > 0";
   if (!f.giaBan.trim() || !Number.isFinite(giaBan) || giaBan <= 0) loi.giaBan = "Giá bán là số > 0";
   else if (!loi.giaNhap && giaBan < giaNhap) loi.giaBan = "Giá bán phải ≥ giá nhập";
   if (!Number.isInteger(dinhMucToiThieu) || dinhMucToiThieu < 0) loi.dinhMucToiThieu = "Định mức là số nguyên ≥ 0";
@@ -56,7 +56,7 @@ async function kiemTraSach(f: FormSach, maSachDangSua?: number) {
 
   if (!loi.isbn) {
     const trung = await sachRepository.timTheoIsbn(isbn);
-    if (trung && trung.maSach !== maSachDangSua) loi.isbn = `ISBN đã có: "${trung.tenSach}"`;
+    if (trung && trung.maSach !== maSachDangSua) loi.isbn = `Mã sách đã tồn tại ("${trung.tenSach}")`;
   }
   if (Object.keys(loi).length) throw new LoiNghiepVu("Dữ liệu chưa hợp lệ, kiểm tra các ô báo đỏ", loi);
 
@@ -84,7 +84,8 @@ export const sachService = {
   async capNhat(maSach: number, f: FormSach, maTK: number) {
     const cu = await sachRepository.timTheoMa(prisma, maSach);
     if (!cu) throw new LoiNghiepVu("Sách không tồn tại");
-    const d = await kiemTraSach(f, maSach);
+    // UC2.3: không cho sửa ISBN (tránh lỗi tham chiếu) – luôn giữ ISBN cũ
+    const d = await kiemTraSach({ ...f, isbn: cu.isbn }, maSach);
     await sachRepository.capNhat(maSach, d);
     const thayDoi = (["giaNhap", "giaBan"] as const)
       .filter((k) => Number(cu[k]) !== d[k])
@@ -142,6 +143,7 @@ export const sachService = {
   },
 
   danhSachTheLoai: () => theLoaiRepository.tatCa(),
+  danhSachNXB: () => sachRepository.danhSachNXB(),
   danhSachTheLoaiKemSoSach: () => theLoaiRepository.tatCaKemSoSach(),
 
   async luuTheLoai(maTL: number | null, tenTLTho: string, maTK: number) {

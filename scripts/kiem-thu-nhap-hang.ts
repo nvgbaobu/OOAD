@@ -33,6 +33,8 @@ async function main() {
   await phaiLoi(() => nhaCungCapService.capNhat(chiNhanh.maNCC, { ...mau, maSoThue: "0312345678" }, admin), "maSoThue", "đã có");
   await nhaCungCapService.capNhat(dongA.maNCC, { ...mau, nguoiLienHe: "Phạm Thu Hà" }, admin);
   kiemTra((await prisma.nhaCungCap.findUniqueOrThrow({ where: { maNCC: dongA.maNCC } })).nguoiLienHe === "Phạm Thu Hà", "sửa NCC (giữ MST của chính nó)");
+  await nhaCungCapService.capNhat(chiNhanh.maNCC, { ...mau, maSoThue: "0312345678-001", trangThaiHopTac: "NGUNG_GIAO_DICH" }, admin);
+  kiemTra((await prisma.nhaCungCap.findUniqueOrThrow({ where: { maNCC: chiNhanh.maNCC } })).trangThaiHopTac === "NGUNG_GIAO_DICH", "UC7.1: chọn trạng thái hợp tác ngay trong form");
   await nhaCungCapService.xoa(chiNhanh.maNCC, admin);
   kiemTra(!(await prisma.nhaCungCap.findUnique({ where: { maNCC: chiNhanh.maNCC } })), "xóa NCC chưa có phiếu nhập");
   const fahasa = await prisma.nhaCungCap.findUniqueOrThrow({ where: { maSoThue: "0304132047" } });
@@ -57,7 +59,7 @@ async function main() {
   console.log("2b. Tạo nhanh sách mới trên phiếu nhập (UC7.2 – 3a)");
   const maTLNhanh = String((await prisma.theLoai.findFirstOrThrow()).maTL);
   const moiNhanh = { isbn: "978-0-00-000001-1", tenSach: "Sách thử tạo nhanh", tacGia: "Tác giả thử", maTL: maTLNhanh, giaNhap: "30000", giaBan: "50000" };
-  await phaiLoi(() => sachService.taoNhanh({ ...moiNhanh, isbn: hoangTuBe.isbn }, staff), "isbn", "ISBN đã có");
+  await phaiLoi(() => sachService.taoNhanh({ ...moiNhanh, isbn: hoangTuBe.isbn }, staff), "isbn", "Mã sách đã tồn tại");
   await phaiLoi(() => sachService.taoNhanh({ ...moiNhanh, giaBan: "20000" }, staff), "giaBan", "≥ giá nhập");
   const sNhanh = await sachService.taoNhanh(moiNhanh, staff);
   kiemTra(sNhanh.soLuongTon === 0 && sNhanh.trangThai === "DANG_BAN" && sNhanh.dinhMucToiThieu === 5, "Staff tạo nhanh sách: tồn 0, đang bán");

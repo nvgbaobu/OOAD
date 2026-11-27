@@ -69,7 +69,7 @@ async function main() {
   console.log("5. Xuất hủy");
   await phaiLoi(() => khoService.lapXuatHuy("", [d(rungNaUy, 0, "x")], staff), `dong.${rungNaUy.maSach}`, "> 0");
   await phaiLoi(() => khoService.lapXuatHuy("", [d(rungNaUy, 2)], staff), `dong.${rungNaUy.maSach}`, "lý do");
-  await phaiLoi(() => khoService.lapXuatHuy("", [d(rungNaUy, 15, "Ẩm")], staff), `dong.${rungNaUy.maSach}`, "Chỉ còn 14");
+  await phaiLoi(() => khoService.lapXuatHuy("", [d(rungNaUy, 15, "Ẩm")], staff), `dong.${rungNaUy.maSach}`, "vượt quá tồn kho: chỉ còn 14");
   await posService.themSach(staff, rungNaUy.maSach, 4);
   await phaiLoi(() => khoService.lapXuatHuy("", [d(rungNaUy, 11, "Ẩm")], staff), `dong.${rungNaUy.maSach}`, "4 đang tạm giữ");
   const pxh = await khoService.lapXuatHuy("Hư do mưa", [d(rungNaUy, 10, "Ẩm mốc"), d(nhaGiaKim, 3, "Rách bìa")], staff);

@@ -48,7 +48,7 @@ async function main() {
 
   console.log("2. Thêm / sửa tài khoản");
   const tk = { soDienThoai: "0912 345 678", hoTen: "  Trần  Thị Thử ", email: "thu@nhasach09.vn", vaiTro: "STAFF", matKhau: "thu2026" };
-  await phaiLoi(() => taiKhoanService.tao({ ...tk, soDienThoai: "0900000002" }, admin), "soDienThoai", "đã có tài khoản");
+  await phaiLoi(() => taiKhoanService.tao({ ...tk, soDienThoai: "0900000002" }, admin), "soDienThoai", "Số điện thoại đã tồn tại");
   await phaiLoi(() => taiKhoanService.tao({ ...tk, matKhau: "123" }, admin), "matKhau", "tối thiểu 6");
   await phaiLoi(() => taiKhoanService.tao({ ...tk, vaiTro: "KHACH" }, admin), "vaiTro", "Chọn vai trò");
   const tkMoi = await taiKhoanService.tao(tk, admin);

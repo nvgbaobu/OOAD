@@ -26,7 +26,8 @@ async function main() {
   console.log("1. Thêm sách");
   await phaiLoi(() => sachService.tao({ ...mau, giaBan: "80000" }, admin), "giaBan", "≥ giá nhập");
   await phaiLoi(() => sachService.tao({ ...mau, isbn: "12345" }, admin), "isbn", "10 hoặc 13");
-  await phaiLoi(() => sachService.tao({ ...mau, isbn: "9786042000013" }, admin), "isbn", "Đắc nhân tâm");
+  await phaiLoi(() => sachService.tao({ ...mau, giaNhap: "0" }, admin), "giaNhap", "> 0");
+  await phaiLoi(() => sachService.tao({ ...mau, isbn: "9786042000013" }, admin), "isbn", "Mã sách đã tồn tại");
   await phaiLoi(() => sachService.tao({ ...mau, tenSach: " ", namXB: "1800", maTL: "" }, admin), "namXB", "1900");
   await phaiLoi(() => sachService.tao({ ...mau, tenSach: " ", maTL: "" }, admin), "maTL", "Chọn thể loại");
   const moi = await sachService.tao(mau, admin);
@@ -36,7 +37,8 @@ async function main() {
   console.log("2. Sửa sách");
   await sachService.capNhat(moi.maSach, { ...mau, giaBan: "159000" }, admin);
   kiemTra(Number((await sachService.layChiTiet(moi.maSach))!.giaBan) === 159000, "cập nhật giá bán");
-  await phaiLoi(() => sachService.capNhat(moi.maSach, { ...mau, isbn: "9786042000001" }, admin), "isbn", "Mắt biếc");
+  await sachService.capNhat(moi.maSach, { ...mau, isbn: "9786042000001" }, admin); // UC2.3: không sửa được ISBN
+  kiemTra((await sachService.layChiTiet(moi.maSach))!.isbn === "9786041234567", "UC2.3: đổi ISBN khi cập nhật bị bỏ qua, ISBN giữ nguyên");
   await sachService.capNhat(moi.maSach, mau, admin); // giữ nguyên ISBN của chính nó → không báo trùng
   kiemTra(true, "lưu lại với ISBN của chính nó không báo trùng");
   const nk = await prisma.nhatKyHeThong.findFirstOrThrow({ where: { module: "SACH", hanhDong: "SUA" }, orderBy: { maLog: "desc" } });
@@ -60,6 +62,9 @@ async function main() {
   await posService.huyDon(2);
 
   console.log("4. Danh sách + lọc");
+  const theoNXB = await sachService.danhSach({ nhaXuatBan: "NXB Trẻ" }, 1);
+  kiemTra(theoNXB.tong > 0 && theoNXB.sachs.every((s) => s.nhaXuatBan === "NXB Trẻ"), `UC2.1: lọc theo NXB (${theoNXB.tong} sách NXB Trẻ)`);
+  kiemTra((await sachService.danhSachNXB()).includes("NXB Trẻ"), "danh sách NXB cho bộ lọc");
   const tongSach = await prisma.sach.count();
   const soTrang = Math.ceil(tongSach / 15);
   const tatCa = await sachService.danhSach({}, 1);

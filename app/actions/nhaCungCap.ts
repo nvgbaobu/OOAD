@@ -6,7 +6,7 @@ import { yeuCauDangNhap } from "@/lib/auth/dal";
 import { nhaCungCapService, type FormNhaCungCap } from "@/lib/services/nhaCungCapService";
 import { batLoiNghiepVu, docForm, type KetQuaForm } from "@/lib/ketQuaForm";
 
-const truong = ["tenNCC", "maSoThue", "diaChi", "nguoiLienHe", "soDienThoai"] as const;
+const truong = ["tenNCC", "maSoThue", "diaChi", "nguoiLienHe", "soDienThoai", "trangThaiHopTac"] as const;
 
 /** Thêm (maNCC rỗng) hoặc sửa NCC. Chỉ Admin. */
 export async function luuNhaCungCap(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> {

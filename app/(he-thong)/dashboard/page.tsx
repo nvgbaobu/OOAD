@@ -42,9 +42,11 @@ export default async function TrangDashboard() {
           <SoSanh nay={d.homNay.doanhThu} truoc={d.homQua.doanhThu} />
         </div>
         <div className="rounded-lg border bg-white p-3">
-          <div className="text-xs text-gray-500">Hóa đơn hôm nay</div>
+          <div className="text-xs text-gray-500">Đơn hoàn thành hôm nay</div>
           <div className="text-2xl font-semibold">{d.homNay.soHoaDon}</div>
           <SoSanh nay={d.homNay.soHoaDon} truoc={d.homQua.soHoaDon} />
+          {/* UC9.1: số đơn bị hủy trong ngày */}
+          <div className="text-xs text-gray-600">{d.homNay.soHoaDonHuy} đơn bị hủy</div>
         </div>
         <div className="rounded-lg border bg-white p-3">
           <div className="text-xs text-gray-500">Sách bán hôm nay</div>
