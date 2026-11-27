@@ -37,7 +37,7 @@ async function main() {
   console.log("2. Sửa sách");
   await sachService.capNhat(moi.maSach, { ...mau, giaBan: "159000" }, admin);
   kiemTra(Number((await sachService.layChiTiet(moi.maSach))!.giaBan) === 159000, "cập nhật giá bán");
-  await sachService.capNhat(moi.maSach, { ...mau, isbn: "9786042000001" }, admin); // UC2.3: không sửa được ISBN
+  await sachService.capNhat(moi.maSach, { ...mau, giaBan: "159000", isbn: "9786042000001" }, admin); // UC2.3: không sửa được ISBN (giữ giá 159.000 cho bước kiểm tra nhật ký bên dưới)
   kiemTra((await sachService.layChiTiet(moi.maSach))!.isbn === "9786041234567", "UC2.3: đổi ISBN khi cập nhật bị bỏ qua, ISBN giữ nguyên");
   await sachService.capNhat(moi.maSach, mau, admin); // giữ nguyên ISBN của chính nó → không báo trùng
   kiemTra(true, "lưu lại với ISBN của chính nó không báo trùng");
