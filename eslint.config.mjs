@@ -12,8 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Thư mục bài nộp (bản sao mã nguồn, báo cáo) – không kiểm tra
-    "S7_Nhom09/**",
   ]),
 ]);
 
