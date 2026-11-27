@@ -45,7 +45,7 @@ export default function FormDinhMuc({ sachs }: { sachs: DongSach[] }) {
               <td className="text-right">{s.dinhMucToiThieu}</td>
             </tr>
           ))}
-          {sachs.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-500">Không có sách phù hợp</td></tr>}
+          {sachs.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-500">Không tìm thấy sách</td></tr>}
         </tbody>
       </table>
     </form>

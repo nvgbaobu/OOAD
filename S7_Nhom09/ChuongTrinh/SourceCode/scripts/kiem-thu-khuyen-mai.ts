@@ -24,7 +24,7 @@ async function main() {
 
   console.log("1. Thêm mã giảm giá");
   await phaiLoi(() => khuyenMaiService.taoMa({ ...mau, maCode: "a b" }, admin), "maCode", "3–30 ký tự");
-  await phaiLoi(() => khuyenMaiService.taoMa({ ...mau, maCode: "giam10" }, admin), "maCode", "đã tồn tại");
+  await phaiLoi(() => khuyenMaiService.taoMa({ ...mau, maCode: "giam10" }, admin), "maCode", "Mã giảm giá đã tồn tại");
   await phaiLoi(() => khuyenMaiService.taoMa({ ...mau, giaTriGiam: "120" }, admin), "giaTriGiam", "0 đến 100");
   await phaiLoi(() => khuyenMaiService.taoMa({ ...mau, loaiGiam: "SO_TIEN", giaTriGiam: "0" }, admin), "giaTriGiam", "> 0");
   await phaiLoi(() => khuyenMaiService.taoMa({ ...mau, ngayBatDau: sauNgay(2), ngayKetThuc: sauNgay(1) }, admin), "ngayKetThuc", "từ ngày bắt đầu");
@@ -75,8 +75,9 @@ async function main() {
     tenCombo: " Combo  làm giàu ", giaCombo: gia, ngayBatDau: sauNgay(0), ngayKetThuc: sauNgay(30),
     dong: dong.map(([m, sl]) => ({ maSach: String(m), soLuong: String(sl) })),
   });
-  await phaiLoi(() => khuyenMaiService.luuCombo(null, c("100000", [[chaGiau.maSach, 1]]), admin), "dong", "ít nhất 2 cuốn");
-  await phaiLoi(() => khuyenMaiService.luuCombo(null, c("225000", [[chaGiau.maSach, 1], [nghiGiau.maSach, 1]]), admin), "giaCombo", "thấp hơn tổng giá lẻ (225.000đ)");
+  await phaiLoi(() => khuyenMaiService.luuCombo(null, c("100000", [[chaGiau.maSach, 1]]), admin), "dong", "ít nhất 2 đầu sách");
+  await phaiLoi(() => khuyenMaiService.luuCombo(null, c("100000", [[chaGiau.maSach, 2]]), admin), "dong", "ít nhất 2 đầu sách"); // 2 cuốn cùng 1 đầu sách
+  await phaiLoi(() => khuyenMaiService.luuCombo(null, c("225000", [[chaGiau.maSach, 1], [nghiGiau.maSach, 1]]), admin), "giaCombo", "Giá Combo không có ưu đãi");
   await phaiLoi(() => khuyenMaiService.luuCombo(null, c("300000", [[chaGiau.maSach, 1], [english.maSach, 1]]), admin), `dong.${english.maSach}`, "ngừng kinh doanh");
   const combo = await khuyenMaiService.luuCombo(null, c("190000", [[chaGiau.maSach, 1], [nghiGiau.maSach, 1]]), admin);
   kiemTra(combo.tenCombo === "Combo làm giàu", "thêm combo, chuẩn hóa tên");

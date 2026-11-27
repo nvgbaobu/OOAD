@@ -20,12 +20,20 @@ export type NguoiXem = { maTK: number; vaiTro: string };
 
 export const hoaDonService = {
   async danhSach(loc: LocHoaDon, trang: number, nguoiXem: NguoiXem) {
+    // UC5.1 luồng 3a: khoảng thời gian không hợp lệ (ngày bắt đầu sau ngày kết thúc) → báo lỗi, không tra cứu
+    // (denNgay đã là 0:00 của ngày SAU ngày kết thúc người dùng chọn)
+    if (loc.tuNgay && loc.denNgay && loc.tuNgay >= loc.denNgay) {
+      return {
+        hoaDons: [], soHoaDon: 0, soDaThanhToan: 0, doanhThu: 0, soTrang: 1, trang: 1,
+        loi: "Khoảng thời gian không hợp lệ: ngày bắt đầu sau ngày kết thúc. Vui lòng chọn lại.",
+      };
+    }
     const locThat: LocHoaDon = nguoiXem.vaiTro === "ADMIN" ? loc : { ...loc, maTK: nguoiXem.maTK };
     const tongHop = await hoaDonRepository.tongHop(locThat);
     const soTrang = Math.max(1, Math.ceil(tongHop.soHoaDon / SO_HOA_DON_MOI_TRANG));
     const trangHienTai = Math.min(Math.max(1, trang), soTrang);
     const hoaDons = await hoaDonRepository.danhSach(locThat, (trangHienTai - 1) * SO_HOA_DON_MOI_TRANG, SO_HOA_DON_MOI_TRANG);
-    return { hoaDons, ...tongHop, soTrang, trang: trangHienTai };
+    return { hoaDons, ...tongHop, soTrang, trang: trangHienTai, loi: undefined as string | undefined };
   },
 
   /** Chi tiết hóa đơn (không phải đơn đang lập); Staff chỉ xem được hóa đơn của mình. */
@@ -41,7 +49,7 @@ export const hoaDonService = {
 
   async huy(maHD: number, lyDoTho: string, maTK: number) {
     const lyDo = lyDoTho.trim().replace(/\s+/g, " ");
-    if (!lyDo) throw new LoiNghiepVu("Nhập lý do hủy hóa đơn", { lyDoHuy: "Bắt buộc" });
+    if (!lyDo) throw new LoiNghiepVu("Lý do hủy là bắt buộc", { lyDoHuy: "Lý do hủy là bắt buộc" });
     if (lyDo.length > 255) throw new LoiNghiepVu("Lý do tối đa 255 ký tự", { lyDoHuy: "Tối đa 255 ký tự" });
 
     await prisma.$transaction(async (tx) => {

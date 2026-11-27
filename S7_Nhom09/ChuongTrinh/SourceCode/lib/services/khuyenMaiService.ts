@@ -56,7 +56,7 @@ async function kiemTraMa(f: FormMa, cu: { maMGG: number; maCode: string; daSuDun
   else if (!/^[A-Z0-9_-]{3,30}$/.test(maCode)) loi.maCode = "3–30 ký tự: chữ không dấu, số, _ hoặc -";
   else {
     const trung = await maGiamGiaRepository.timTheoCode(prisma, maCode);
-    if (trung && trung.maMGG !== cu?.maMGG) loi.maCode = `Mã ${maCode} đã tồn tại`;
+    if (trung && trung.maMGG !== cu?.maMGG) loi.maCode = `Mã giảm giá đã tồn tại (${maCode})`;
   }
   if (!loaiGiam) loi.loaiGiam = "Chọn loại giảm";
   else if (loaiGiam === "PHAN_TRAM" && (!Number.isFinite(giaTriGiam) || giaTriGiam <= 0 || giaTriGiam > 100 || Math.round(giaTriGiam * 100) !== giaTriGiam * 100)) {
@@ -88,11 +88,11 @@ async function kiemTraCombo(f: FormCombo) {
     if (s.trangThai !== "DANG_BAN") loi[k] = "Sách đã ngừng kinh doanh";
     else if (!Number.isInteger(d.soLuong) || d.soLuong < 1 || d.soLuong > 20) loi[k] = "Số lượng 1–20";
   }
-  const tongCuon = dong.reduce((t, d) => t + (d.soLuong || 0), 0);
-  if (dong.length === 0 || tongCuon < 2) loi.dong = "Combo phải có ít nhất 2 cuốn";
+  // UC8.2 luồng 3a: combo phải gồm ít nhất 2 đầu sách khác nhau
+  if (dong.length < 2) loi.dong = "Combo phải có ít nhất 2 đầu sách";
   const giaLe = dong.reduce((t, d) => t + Number(sachs.get(d.maSach)?.giaBan ?? 0) * (d.soLuong || 0), 0);
   if (!Number.isInteger(giaCombo) || giaCombo <= 0) loi.giaCombo = "Giá combo là số tiền > 0";
-  else if (!loi.dong && giaCombo >= giaLe) loi.giaCombo = `Giá combo phải thấp hơn tổng giá lẻ (${vnd(giaLe)})`;
+  else if (!loi.dong && giaCombo >= giaLe) loi.giaCombo = `Giá Combo không có ưu đãi – phải thấp hơn tổng giá lẻ (${vnd(giaLe)})`;
   if (Object.keys(loi).length) throw new LoiNghiepVu("Dữ liệu chưa hợp lệ, kiểm tra các ô báo đỏ", loi);
   return { tenCombo, giaCombo, ...ngay, dong, giaLe };
 }

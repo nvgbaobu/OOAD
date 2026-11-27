@@ -59,7 +59,7 @@ export default async function TrangNhatKy({ searchParams }: PageProps<"/cai-dat/
                 <td className="break-words">{n.noiDung}</td>
               </tr>
             ))}
-            {kq.dong.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-500">Không có nhật ký phù hợp</td></tr>}
+            {kq.dong.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-gray-500">Không có dữ liệu</td></tr>}
           </tbody>
         </table>
       </div>

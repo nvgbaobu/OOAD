@@ -71,6 +71,8 @@ export default async function TrangHoaDon({ searchParams }: PageProps<"/hoa-don"
         <Link href="/hoa-don" className="px-2 py-1.5 text-sm text-gray-600 hover:underline">Xóa lọc</Link>
       </Form>
 
+      {kq.loi && <p role="alert" className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{kq.loi}</p>}
+
       <p className="text-sm text-gray-700">
         {kq.soHoaDon} hóa đơn · <b>{kq.soDaThanhToan}</b> đã thanh toán, doanh thu <b>{tienVND(kq.doanhThu)}</b>
         <span className="text-gray-500"> (không tính hóa đơn đã hủy)</span>
@@ -101,7 +103,7 @@ export default async function TrangHoaDon({ searchParams }: PageProps<"/hoa-don"
                 </tr>
               );
             })}
-            {kq.hoaDons.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-gray-500">Không có hóa đơn phù hợp</td></tr>}
+            {kq.hoaDons.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-gray-500">Không tìm thấy hóa đơn</td></tr>}
           </tbody>
         </table>
       </div>

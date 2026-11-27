@@ -33,6 +33,13 @@ export default function FormNhaCungCap({ banDau, maNCC }: { banDau: Record<strin
         {o("soDienThoai", "Số điện thoại", { inputMode: "tel" })}
         {o("nguoiLienHe", "Người liên hệ")}
         {o("diaChi", "Địa chỉ")}
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium">Trạng thái hợp tác</span>
+          <select name="trangThaiHopTac" defaultValue={gt.trangThaiHopTac || "DANG_GIAO_DICH"} className={oNhap}>
+            <option value="DANG_GIAO_DICH">Đang giao dịch</option>
+            <option value="NGUNG_GIAO_DICH">Ngừng giao dịch</option>
+          </select>
+        </label>
       </fieldset>
       <div className="flex gap-2">
         <button type="submit" disabled={pending} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">

@@ -37,7 +37,7 @@ export default async function TrangDanhSachKiemKe({ searchParams }: PageProps<"/
                 <td><NhanTrangThai trangThai={p.trangThai} /></td>
               </tr>
             ))}
-            {ds.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-gray-500">Không có phiếu</td></tr>}
+            {ds.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-gray-500">{trangThai === "CHO_DUYET" ? "Không có phiếu chờ duyệt" : "Không có phiếu"}</td></tr>}
           </tbody>
         </table>
       </div>

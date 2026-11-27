@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   experimental: { serverActions: { bodySizeLimit: "500mb" }, proxyClientMaxBodySize: "500mb" },
   // font tiếng Việt cho PDF nằm ở lib/fonts → kèm vào bản build standalone/route
   outputFileTracingIncludes: { "/bao-cao/pdf": ["./lib/fonts/**"] },
+  // UC10.1: trang hạng thành viên chuyển vào Cài đặt – giữ đường dẫn cũ
+  async redirects() {
+    return [{ source: "/khach-hang/hang", destination: "/cai-dat/hang-thanh-vien", permanent: false }];
+  },
   turbopack: {
     rules: {
       "*.css": {

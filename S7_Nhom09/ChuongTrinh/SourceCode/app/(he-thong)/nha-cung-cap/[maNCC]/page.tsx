@@ -19,7 +19,7 @@ export default async function TrangSuaNhaCungCap({ params }: PageProps<"/nha-cun
   const { ncc, thongKe, phieuNhaps } = ct;
   const dangGD = ncc.trangThaiHopTac === "DANG_GIAO_DICH";
   const banDau = Object.fromEntries(
-    (["tenNCC", "maSoThue", "diaChi", "nguoiLienHe", "soDienThoai"] as const).map((k) => [k, ncc[k] ?? ""]),
+    (["tenNCC", "maSoThue", "diaChi", "nguoiLienHe", "soDienThoai", "trangThaiHopTac"] as const).map((k) => [k, ncc[k] ?? ""]),
   );
 
   return (

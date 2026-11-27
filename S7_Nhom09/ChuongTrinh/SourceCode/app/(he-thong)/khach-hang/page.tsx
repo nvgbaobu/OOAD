@@ -28,7 +28,7 @@ export default async function TrangKhachHang({ searchParams }: PageProps<"/khach
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Khách hàng thành viên <span className="text-sm font-normal text-gray-500">({kq.tong})</span></h1>
-        {nd.vaiTro === "ADMIN" && <Link href="/khach-hang/hang" className="rounded border bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Hạng thành viên</Link>}
+        {nd.vaiTro === "ADMIN" && <Link href="/cai-dat/hang-thanh-vien" className="rounded border bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Hạng thành viên</Link>}
         <Link href="/khach-hang/them" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700">+ Thêm khách hàng</Link>
       </div>
 
