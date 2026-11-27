@@ -39,7 +39,7 @@ export async function luuHang(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> 
     }, nd.maTK);
   }, duLieu);
   if (kq) return kq;
-  redirect(`/khach-hang/hang?soDoi=${soDoi}`);
+  redirect(`/cai-dat/hang-thanh-vien?soDoi=${soDoi}`);
 }
 
 export async function xoaHang(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> {
@@ -47,5 +47,5 @@ export async function xoaHang(_: KetQuaForm, fd: FormData): Promise<KetQuaForm> 
   let soDoi = 0;
   const kq = await batLoiNghiepVu(async () => { soDoi = await khachHangService.xoaHang(Number(fd.get("maHang")), nd.maTK); });
   if (kq) return kq;
-  redirect(`/khach-hang/hang?soDoi=${soDoi}`);
+  redirect(`/cai-dat/hang-thanh-vien?soDoi=${soDoi}`);
 }

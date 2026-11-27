@@ -6,10 +6,9 @@ export const CHI_ADMIN: RegExp[] = [
   /^\/dashboard(\/|$)/,
   /^\/bao-cao(\/|$)/, // báo cáo doanh thu + xuất Excel
   /^\/sach\/.+/, // /sach (danh sách) Staff xem được; thêm/sửa sách, thể loại: chỉ Admin
-  /^\/khach-hang\/hang(\/|$)/, // cấu hình hạng thành viên; tra cứu/thêm/sửa khách thì Staff được
   /^\/khuyen-mai\/.+/, // /khuyen-mai (danh sách) Staff xem được; thêm/sửa mã, combo: chỉ Admin
   /^\/nha-cung-cap(\/|$)/, // Staff chỉ chọn NCC khi lập phiếu nhập, không quản lý NCC
-  /^\/cai-dat(\/|$)/, // cấu hình, tài khoản, nhật ký, sao lưu (đổi mật khẩu cá nhân ở /ca-nhan – mọi người dùng)
+  /^\/cai-dat(\/|$)/, // cấu hình, hạng thành viên (UC10.1), tài khoản, nhật ký, sao lưu (đổi mật khẩu cá nhân ở /ca-nhan – mọi người dùng)
   /^\/kho\/dinh-muc(\/|$)/, // UC4.2 thiết lập định mức tồn kho
 ];
 

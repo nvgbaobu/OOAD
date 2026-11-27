@@ -32,7 +32,7 @@ export default function FormSach({ theLoais, banDau, maSach }: { theLoais: TheLo
       {state?.loi && <p role="alert" className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{state.loi}</p>}
 
       <fieldset disabled={pending} className="grid gap-4 sm:grid-cols-2">
-        {o("isbn", "ISBN", { batBuoc: true, placeholder: "10 hoặc 13 chữ số", inputMode: "numeric" })}
+        {o("isbn", maSach ? "ISBN (không sửa được)" : "ISBN", { batBuoc: true, placeholder: "10 hoặc 13 chữ số", inputMode: "numeric", readOnly: !!maSach, className: `${oNhap}${maSach ? " bg-gray-100 text-gray-600" : ""}` })}
         <label className="block text-sm">
           <span className="mb-1 block font-medium">Thể loại<span className="text-red-600"> *</span></span>
           <select name="maTL" defaultValue={gt.maTL ?? ""} aria-invalid={!!loi.maTL} className={oNhap}>
@@ -48,7 +48,7 @@ export default function FormSach({ theLoais, banDau, maSach }: { theLoais: TheLo
         {o("nhaXuatBan", "Nhà xuất bản")}
         {o("namXB", "Năm xuất bản", { type: "number", min: 1900 })}
         {o("viTriKe", "Vị trí kệ", { placeholder: "VD: A1-01" })}
-        {o("giaNhap", "Giá nhập (đ)", { batBuoc: true, type: "number", min: 0, step: 1 })}
+        {o("giaNhap", "Giá nhập (đ)", { batBuoc: true, type: "number", min: 1, step: 1 })}
         {o("giaBan", "Giá bán (đ)", { batBuoc: true, type: "number", min: 0, step: 1 })}
         {o("dinhMucToiThieu", "Định mức tồn tối thiểu", { type: "number", min: 0 })}
         {o("hinhAnh", "Đường dẫn ảnh bìa", { placeholder: "https://..." })}

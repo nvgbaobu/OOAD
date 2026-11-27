@@ -10,19 +10,20 @@ import FormHang from "./FormHang";
 
 export const metadata: Metadata = { title: "Hạng thành viên" };
 
-export default async function TrangHangThanhVien({ searchParams }: PageProps<"/khach-hang/hang">) {
+export default async function TrangHangThanhVien({ searchParams }: PageProps<"/cai-dat/hang-thanh-vien">) {
   await yeuCauDangNhap("ADMIN");
   const [hangs, ch, sp] = await Promise.all([khachHangService.danhSachHang(), cauHinhRepository.lay(), searchParams]);
   const soDoi = typeof sp.soDoi === "string" ? Number(sp.soDoi) : null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="max-w-4xl space-y-4">
+      {/* UC10.1: mốc thăng hạng là một phần của Cài đặt hệ thống */}
       <div className="flex items-center gap-2">
-        <h1 className="mr-auto text-lg font-semibold">Hạng thành viên &amp; tích điểm</h1>
-        <Link href="/khach-hang" className="text-sm text-blue-600 hover:underline">← Khách hàng</Link>
+        <h2 className="mr-auto font-semibold">Mốc thăng hạng &amp; ưu đãi thành viên</h2>
+        <Link href="/khach-hang" className="text-sm text-blue-600 hover:underline">Danh sách khách hàng →</Link>
       </div>
       <p className="rounded bg-blue-50 p-3 text-sm text-blue-900">
-        Tích điểm: mỗi <b>{tienVND(ch.tyLeQuyDoiDiem)}</b> trong tổng tiền hóa đơn = 1 điểm; đổi điểm: 1 điểm = <b>{tienVND(ch.giaTriMotDiem)}</b> (sửa ở Cài đặt).
+        Tích điểm: mỗi <b>{tienVND(ch.tyLeQuyDoiDiem)}</b> trong tổng tiền hóa đơn = 1 điểm; đổi điểm: 1 điểm = <b>{tienVND(ch.giaTriMotDiem)}</b> (sửa ở tab <Link href="/cai-dat" className="underline">Cửa hàng &amp; thanh toán</Link>).
         <br />Hạng của khách = hạng có mốc điểm cao nhất mà <b>điểm tích lũy</b> đạt được. Lưu thay đổi sẽ xét lại hạng toàn bộ khách hàng.
       </p>
       {soDoi !== null && !Number.isNaN(soDoi) && (

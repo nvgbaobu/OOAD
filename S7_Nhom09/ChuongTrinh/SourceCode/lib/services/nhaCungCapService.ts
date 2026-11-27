@@ -9,7 +9,11 @@ import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 export const TRANG_THAI_NCC = { DANG_GIAO_DICH: "Đang giao dịch", NGUNG_GIAO_DICH: "Ngừng giao dịch" } as const;
 export type TrangThaiNCC = keyof typeof TRANG_THAI_NCC;
 
-export type FormNhaCungCap = Record<"tenNCC" | "maSoThue" | "diaChi" | "nguoiLienHe" | "soDienThoai", string>;
+export type FormNhaCungCap = Record<"tenNCC" | "maSoThue" | "diaChi" | "nguoiLienHe" | "soDienThoai", string> & {
+  /** UC7.1 bước 3: chọn trạng thái hợp tác ngay trong form (bỏ trống = Đang giao dịch / giữ nguyên). */
+  trangThaiHopTac?: string;
+};
+const laTrangThai = (s?: string): s is TrangThaiNCC => !!s && s in TRANG_THAI_NCC;
 
 const chuanHoa = (s: string | undefined) => (s ?? "").trim().replace(/\s+/g, " ");
 
@@ -55,7 +59,7 @@ export const nhaCungCapService = {
 
   async tao(f: FormNhaCungCap, maTK: number) {
     const d = await kiemTra(f);
-    const ncc = await nhaCungCapRepository.tao({ ...d, trangThaiHopTac: "DANG_GIAO_DICH" });
+    const ncc = await nhaCungCapRepository.tao({ ...d, trangThaiHopTac: laTrangThai(f.trangThaiHopTac) ? f.trangThaiHopTac : "DANG_GIAO_DICH" });
     await nhatKyRepository.ghi({ maTK, module: "NHA_CUNG_CAP", hanhDong: "THEM", noiDung: `#${ncc.maNCC} ${ncc.tenNCC} (MST ${ncc.maSoThue})` });
     return ncc;
   },
@@ -65,6 +69,7 @@ export const nhaCungCapService = {
     const d = await kiemTra(f, maNCC);
     await nhaCungCapRepository.capNhat(maNCC, d);
     await nhatKyRepository.ghi({ maTK, module: "NHA_CUNG_CAP", hanhDong: "SUA", noiDung: `#${maNCC} ${d.tenNCC}` });
+    if (laTrangThai(f.trangThaiHopTac)) await nhaCungCapService.doiTrangThai(maNCC, f.trangThaiHopTac, maTK);
   },
 
   async doiTrangThai(maNCC: number, trangThai: TrangThaiNCC, maTK: number) {

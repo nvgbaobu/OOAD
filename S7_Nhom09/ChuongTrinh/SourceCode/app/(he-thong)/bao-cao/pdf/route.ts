@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   const nd = await yeuCauDangNhap("ADMIN");
   const sp = request.nextUrl.searchParams;
   const k = docKhoangNgay(sp.get("tuNgay") ?? undefined, sp.get("denNgay") ?? undefined);
+  if (k.loi) return new Response(k.loi, { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   const file = await taoFilePdfBaoCao(k, nd.hoTen);
   await nhatKyRepository.ghi({ maTK: nd.maTK, module: "BAO_CAO", hanhDong: "XUAT_PDF", noiDung: `Doanh thu ${k.tuNgay} → ${k.denNgay}` });
   return new Response(new Uint8Array(file), {

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TAB = [
   { href: "/cai-dat", ten: "Cửa hàng & thanh toán" },
+  { href: "/cai-dat/hang-thanh-vien", ten: "Hạng thành viên" },
   { href: "/cai-dat/tai-khoan", ten: "Tài khoản" },
   { href: "/cai-dat/nhat-ky", ten: "Nhật ký hệ thống" },
   { href: "/cai-dat/sao-luu", ten: "Sao lưu dữ liệu" },

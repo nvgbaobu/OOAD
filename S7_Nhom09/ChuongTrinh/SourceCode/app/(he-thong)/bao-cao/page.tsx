@@ -17,6 +17,20 @@ export default async function TrangBaoCao({ searchParams }: PageProps<"/bao-cao"
   await yeuCauDangNhap("ADMIN");
   const sp = await searchParams;
   const k = docKhoangNgay(typeof sp.tuNgay === "string" ? sp.tuNgay : undefined, typeof sp.denNgay === "string" ? sp.denNgay : undefined);
+  if (k.loi) {
+    // UC9.2 luồng 2a: khoảng thời gian không hợp lệ → báo lỗi, yêu cầu chọn lại (không lập báo cáo)
+    return (
+      <div className="space-y-4">
+        <h1 className="text-lg font-semibold">Báo cáo doanh thu</h1>
+        <Form action="/bao-cao" replace className="flex flex-wrap items-end gap-2 rounded-lg border bg-white p-3">
+          <label className="text-xs text-gray-600">Từ ngày<input type="date" name="tuNgay" defaultValue={k.tuNgay} className={`${oLoc} block`} /></label>
+          <label className="text-xs text-gray-600">Đến ngày<input type="date" name="denNgay" defaultValue={k.denNgay} className={`${oLoc} block`} /></label>
+          <button className="rounded bg-gray-800 px-3 py-1.5 text-sm text-white hover:bg-gray-700">Xem</button>
+        </Form>
+        <p role="alert" className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{k.loi}</p>
+      </div>
+    );
+  }
   const bc = await baoCaoService.baoCao(k);
   const t = bc.tong;
   const nhanh = (["homNay", "7Ngay", "30Ngay", "thangNay", "thangTruoc"] as const).map((loai) => {
@@ -34,7 +48,7 @@ export default async function TrangBaoCao({ searchParams }: PageProps<"/bao-cao"
           <thead className="text-left text-gray-600"><tr>{cot.map((c, i) => <th key={c} className={`py-2 ${i ? "text-right" : ""}`}>{c}</th>)}</tr></thead>
           <tbody>
             {dong.map((d, i) => <tr key={i} className="border-t">{d.map((o, j) => <td key={j} className={j ? "text-right" : ""}>{o}</td>)}</tr>)}
-            {dong.length === 0 && <tr><td colSpan={cot.length} className="py-4 text-center text-gray-500">Không có dữ liệu</td></tr>}
+            {dong.length === 0 && <tr><td colSpan={cot.length} className="py-4 text-center text-gray-500">Không có dữ liệu phù hợp</td></tr>}
           </tbody>
         </table>
       </div>

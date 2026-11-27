@@ -76,7 +76,7 @@ export default async function TrangChiTietKhachHang({ params, searchParams }: Pa
                 </tr>
               );
             })}
-            {hoaDons.length === 0 && <tr><td colSpan={6} className="py-4 text-center text-gray-500">Chưa có hóa đơn</td></tr>}
+            {hoaDons.length === 0 && <tr><td colSpan={6} className="py-4 text-center text-gray-500">Khách hàng chưa có lịch sử mua hàng</td></tr>}
           </tbody>
         </table>
       </section>

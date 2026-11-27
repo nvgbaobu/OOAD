@@ -17,12 +17,14 @@ export default async function TrangSach({ searchParams }: PageProps<"/sach">) {
   const loc = {
     tuKhoa: chuoi("q"),
     maTL: Number(chuoi("maTL")) || undefined,
+    nhaXuatBan: chuoi("nxb") || undefined,
     trangThai: chuoi("trangThai") in TRANG_THAI_SACH ? chuoi("trangThai") : undefined,
     sapHet: chuoi("sapHet") === "1",
   };
-  const [{ sachs, tong, soTrang, trang }, theLoais] = await Promise.all([
+  const [{ sachs, tong, soTrang, trang }, theLoais, dsNXB] = await Promise.all([
     sachService.danhSach(loc, Number(chuoi("trang")) || 1),
     sachService.danhSachTheLoai(),
+    sachService.danhSachNXB(),
   ]);
   const daLuu = Number(chuoi("daLuu")) || null;
 
@@ -51,6 +53,10 @@ export default async function TrangSach({ searchParams }: PageProps<"/sach">) {
         <select name="maTL" defaultValue={loc.maTL ?? ""} className={oLoc}>
           <option value="">Tất cả thể loại</option>
           {theLoais.map((t) => <option key={t.maTL} value={t.maTL}>{t.tenTL}</option>)}
+        </select>
+        <select name="nxb" defaultValue={loc.nhaXuatBan ?? ""} className={`${oLoc} max-w-48`}>
+          <option value="">Mọi NXB</option>
+          {dsNXB.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
         <select name="trangThai" defaultValue={loc.trangThai ?? ""} className={oLoc}>
           <option value="">Mọi trạng thái</option>
@@ -111,7 +117,7 @@ export default async function TrangSach({ searchParams }: PageProps<"/sach">) {
               );
             })}
             {sachs.length === 0 && (
-              <tr><td colSpan={10} className="py-8 text-center text-gray-500">Không có sách phù hợp</td></tr>
+              <tr><td colSpan={10} className="py-8 text-center text-gray-500">Không tìm thấy sách phù hợp</td></tr>
             )}
           </tbody>
         </table>
