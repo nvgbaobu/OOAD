@@ -51,7 +51,7 @@ async function main() {
   const truoc = await hoaDonService.danhSach({}, 1, admin);
 
   console.log("3. Hủy hóa đơn đã thanh toán");
-  await phaiLoi(() => hoaDonService.huy(maHD, "   ", admin.maTK), "lý do");
+  await phaiLoi(() => hoaDonService.huy(maHD, "   ", admin.maTK), "Lý do hủy là bắt buộc");
   await hoaDonService.huy(maHD, " Khách  trả hàng ", admin.maTK);
   const sau = await prisma.hoaDon.findUniqueOrThrow({ where: { maHD } });
   kiemTra(sau.trangThai === "DA_HUY" && sau.lyDoHuy === "Khách trả hàng" && Number(sau.tongTien) === Number(hd.tongTien), "DA_HUY, lưu lý do, giữ nguyên số tiền");
