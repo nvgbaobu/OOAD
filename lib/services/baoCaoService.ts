@@ -28,19 +28,23 @@ export const SO_NGAY_TOI_DA = 366;
 
 /**
  * Đọc khoảng ngày từ query (?tuNgay=YYYY-MM-DD&denNgay=YYYY-MM-DD, đến hết ngày denNgay).
- * Thiếu/sai → tháng này. Ngày cuối trước ngày đầu thì đổi chỗ; quá 366 ngày thì cắt còn 366 ngày tính từ ngày đầu.
+ * Thiếu/sai định dạng → tháng này. Ngày bắt đầu sau ngày kết thúc → trả `loi` (UC9.2 luồng 2a: báo lỗi, chọn lại);
+ * quá 366 ngày thì cắt còn 366 ngày tính từ ngày đầu.
  */
-export function docKhoangNgay(tuNgay?: string, denNgay?: string): KhoangNgay & { tuNgay: string; denNgay: string; canhBao?: string } {
+export function docKhoangNgay(tuNgay?: string, denNgay?: string): KhoangNgay & { tuNgay: string; denNgay: string; canhBao?: string; loi?: string } {
   const macDinh = khoangNgay("thangNay");
-  let tu = docNgayInput(tuNgay ?? "") ?? macDinh.tu;
+  const tu = docNgayInput(tuNgay ?? "") ?? macDinh.tu;
   let cuoi = docNgayInput(denNgay ?? "") ?? congNgay(macDinh.den, -1);
   let canhBao: string | undefined;
-  if (cuoi < tu) [tu, cuoi] = [cuoi, tu];
+  if (cuoi < tu) {
+    return { tu, den: congNgay(cuoi, 1), tuNgay: ngayInput(tu), denNgay: ngayInput(cuoi),
+      loi: "Khoảng thời gian không hợp lệ: ngày bắt đầu sau ngày kết thúc. Vui lòng chọn lại." };
+  }
   if ((cuoi.getTime() - tu.getTime()) / 864e5 >= SO_NGAY_TOI_DA) {
     cuoi = congNgay(tu, SO_NGAY_TOI_DA - 1);
     canhBao = `Khoảng ngày tối đa ${SO_NGAY_TOI_DA} ngày – đã cắt đến ${ngayInput(cuoi)}`;
   }
-  return { tu, den: congNgay(cuoi, 1), tuNgay: ngayInput(tu), denNgay: ngayInput(cuoi), canhBao };
+  return { tu, den: congNgay(cuoi, 1), tuNgay: ngayInput(tu), denNgay: ngayInput(cuoi), canhBao, loi: undefined };
 }
 
 type Nhom = { soHoaDon: number; doanhThu: number };

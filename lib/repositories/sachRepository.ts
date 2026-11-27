@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Db } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 
-export type LocSach = { tuKhoa?: string; maTL?: number; trangThai?: string; sapHet?: boolean };
+export type LocSach = { tuKhoa?: string; maTL?: number; nhaXuatBan?: string; trangThai?: string; sapHet?: boolean };
 
 function dieuKienLoc(loc: LocSach): Prisma.SachWhereInput {
   return {
@@ -10,6 +10,7 @@ function dieuKienLoc(loc: LocSach): Prisma.SachWhereInput {
       OR: [{ tenSach: { contains: loc.tuKhoa } }, { isbn: { contains: loc.tuKhoa } }, { tacGia: { contains: loc.tuKhoa } }],
     }),
     ...(loc.maTL && { maTL: loc.maTL }),
+    ...(loc.nhaXuatBan && { nhaXuatBan: loc.nhaXuatBan }),
     ...(loc.trangThai && { trangThai: loc.trangThai }),
     // Sắp hết: tồn kho ≤ định mức tối thiểu (so sánh 2 cột bằng field reference)
     ...(loc.sapHet && { soLuongTon: { lte: prisma.sach.fields.dinhMucToiThieu } }),
@@ -17,6 +18,14 @@ function dieuKienLoc(loc: LocSach): Prisma.SachWhereInput {
 }
 
 export const sachRepository = {
+  /** Danh sách nhà xuất bản đang có (bộ lọc UC2.1). */
+  async danhSachNXB() {
+    const ds = await prisma.sach.findMany({
+      where: { nhaXuatBan: { not: null } }, distinct: ["nhaXuatBan"], select: { nhaXuatBan: true }, orderBy: { nhaXuatBan: "asc" },
+    });
+    return ds.map((s) => s.nhaXuatBan!).filter(Boolean);
+  },
+
   danhSach: (loc: LocSach, boQua: number, lay: number) =>
     prisma.sach.findMany({
       where: dieuKienLoc(loc),

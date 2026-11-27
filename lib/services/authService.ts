@@ -20,11 +20,11 @@ export const authService = {
       await nhatKyRepository.ghi({
         maTK: tk?.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP_THAT_BAI", noiDung: `SĐT: ${soDienThoai}`,
       });
-      return { ok: false, loi: "Số điện thoại hoặc mật khẩu không đúng" };
+      return { ok: false, loi: "Số điện thoại hoặc mật khẩu không chính xác" };
     }
     if (tk.trangThai !== "HOAT_DONG") {
       await nhatKyRepository.ghi({ maTK: tk.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP_BI_KHOA" });
-      return { ok: false, loi: "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên" };
+      return { ok: false, loi: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên" };
     }
 
     await nhatKyRepository.ghi({ maTK: tk.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP" });

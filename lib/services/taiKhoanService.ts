@@ -44,7 +44,7 @@ export const taiKhoanService = {
     const loi: Record<string, string> = {};
     const soDienThoai = f.soDienThoai.replace(/[\s.-]/g, "");
     if (!/^0\d{9}$/.test(soDienThoai)) loi.soDienThoai = "Số điện thoại gồm 10 chữ số, bắt đầu bằng 0";
-    else if (await taiKhoanRepository.timTheoSoDienThoai(soDienThoai)) loi.soDienThoai = "Số điện thoại đã có tài khoản";
+    else if (await taiKhoanRepository.timTheoSoDienThoai(soDienThoai)) loi.soDienThoai = "Số điện thoại đã tồn tại (đã có tài khoản)";
     const d = kiemTraThongTin(f, loi);
     kiemTraMatKhau(f.matKhau ?? "", "matKhau", loi);
     nemNeuLoi(loi);
