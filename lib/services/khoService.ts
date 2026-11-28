@@ -14,6 +14,12 @@ import { phieuKhoRepository } from "@/lib/repositories/phieuKhoRepository";
 import { sachRepository } from "@/lib/repositories/sachRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { nhaCungCapRepository } from "@/lib/repositories/nhaCungCapRepository";
+import { Sach } from "@/lib/thucThe/Sach";
+import { NhaCungCap } from "@/lib/thucThe/NhaCungCap";
+import { PhieuNhap } from "@/lib/thucThe/PhieuNhap";
+import { PhieuKiemKe } from "@/lib/thucThe/PhieuKiemKe";
+import { PhieuXuatHuy } from "@/lib/thucThe/PhieuXuatHuy";
+import { ChiTietKiemKe } from "@/lib/thucThe/ChiTietPhieuKho";
 
 export const TRANG_THAI_PHIEU = { CHO_DUYET: "Chờ duyệt", DA_DUYET: "Đã duyệt", TU_CHOI: "Từ chối" } as const;
 export type TrangThaiPhieu = keyof typeof TRANG_THAI_PHIEU;
@@ -71,8 +77,8 @@ export const khoService = {
 
   async lapPhieuNhap(maNCCTho: string, ghiChuTho: string, dongTho: DongPhieuTho[], maTK: number) {
     const maNCC = Number(maNCCTho);
-    const ncc = Number.isInteger(maNCC) && maNCC > 0 ? await nhaCungCapRepository.timTheoMa(maNCC) : null;
-    const loiNCC = !ncc ? "Chọn nhà cung cấp" : ncc.trangThaiHopTac !== "DANG_GIAO_DICH" ? `"${ncc.tenNCC}" đã ngừng giao dịch` : null;
+    const ncc = Number.isInteger(maNCC) && maNCC > 0 ? await NhaCungCap.timTheoMa(maNCC) : null;
+    const loiNCC = !ncc ? "Chọn nhà cung cấp" : !ncc.dangGiaoDich() ? `"${ncc.tenNCC}" đã ngừng giao dịch` : null;
     const { loi, ghiChu, sachs } = await kiemTraChung(ghiChuTho, dongTho);
     if (loiNCC) loi.maNCC = loiNCC;
     const dong = dongTho.map((d) => {
@@ -88,8 +94,12 @@ export const khoService = {
     });
     if (Object.keys(loi).length) throw new LoiNghiepVu(loi.maNCC && Object.keys(loi).length === 1 ? loi.maNCC : "Phiếu chưa hợp lệ, kiểm tra các ô báo đỏ", loi);
 
-    const tongTien = dong.reduce((t, d) => t + d.soLuong * d.giaNhap, 0);
-    const phieu = await phieuKhoRepository.taoPhieuNhap(prisma, maTK, maNCC, ghiChu, tongTien, dong);
+    const phieu = PhieuNhap.moi(maTK, ghiChu);
+    phieu.ganNhaCungCap(ncc!);
+    for (const d of dong) phieu.themChiTiet(d, d.soLuong, d.giaNhap);
+    const tongTien = phieu.tinhTongTien();
+    phieu.guiDuyet();
+    await phieu.luu();
     await nhatKyRepository.ghi({
       maTK, module: "KHO", hanhDong: "LAP_PHIEU_NHAP",
       noiDung: `Phiếu #${phieu.maPN} – ${ncc!.tenNCC}: ${dong.length} sách, ${dong.reduce((t, d) => t + d.soLuong, 0)} cuốn, ${vnd(tongTien)}`,
@@ -101,9 +111,7 @@ export const khoService = {
     await prisma.$transaction(async (tx) => {
       const phieu = await phieuKhoRepository.layPhieuNhap(tx, maPN);
       if (!phieu) throw new LoiNghiepVu("Phiếu không tồn tại");
-      if (!(await phieuKhoRepository.xuLyPhieuNhap(tx, maPN, { trangThai: "DA_DUYET", maTKDuyet: maTK }))) {
-        throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
-      }
+      if (!(await new PhieuNhap(phieu).duyet(maTK, tx))) throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
       const doiGia: string[] = [];
       for (const c of phieu.chiTiets) {
         const giaMoi = Number(c.giaNhap);
@@ -111,7 +119,7 @@ export const khoService = {
           throw new LoiNghiepVu(`Giá nhập "${c.sach.tenSach}" (${vnd(giaMoi)}) cao hơn giá bán hiện tại (${vnd(Number(c.sach.giaBan))}) – sửa giá bán trước khi duyệt`);
         }
         if (Number(c.sach.giaNhap) !== giaMoi) doiGia.push(`${c.sach.tenSach}: ${Number(c.sach.giaNhap)} → ${giaMoi}`);
-        await sachRepository.dieuChinhTon(tx, c.maSach, c.soLuong);
+        await new Sach(c.sach).congTon(c.soLuong, tx);
       }
       await nhatKyRepository.ghi(
         {
@@ -137,8 +145,9 @@ export const khoService = {
         throw new LoiNghiepVu(`Số lượng thực nhận là số nguyên từ 1 đến ${dong.soLuong}`, { soLuong: `Từ 1 đến ${dong.soLuong}` });
       }
       if (soLuong === dong.soLuong) return;
-      if (!(await phieuKhoRepository.suaSoLuongChiTietNhap(tx, maPN, maSach, soLuong))) throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
-      const tongTien = await phieuKhoRepository.tinhLaiTongTienNhap(tx, maPN);
+      const pn = new PhieuNhap(phieu);
+      if (!(await pn.capNhatSoLuong(maSach, soLuong, tx))) throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
+      const tongTien = Number(pn.tongTien);
       await nhatKyRepository.ghi(
         { maTK, module: "KHO", hanhDong: "SUA_SL_PHIEU_NHAP", noiDung: `Phiếu #${maPN} – ${dong.sach.tenSach}: ${dong.soLuong} → ${soLuong} cuốn, tổng tiền ${vnd(tongTien)}` },
         tx,
@@ -148,7 +157,7 @@ export const khoService = {
 
   async tuChoiPhieuNhap(maPN: number, lyDoTho: string, maTK: number) {
     const lyDo = kiemTraLyDoTuChoi(lyDoTho);
-    if (!(await phieuKhoRepository.xuLyPhieuNhap(prisma, maPN, { trangThai: "TU_CHOI", maTKDuyet: maTK, lyDoTuChoi: lyDo }))) {
+    if (!(await PhieuNhap.thamChieu(maPN).tuChoi(maTK, lyDo))) {
       throw new LoiNghiepVu("Phiếu không tồn tại hoặc đã được xử lý");
     }
     await nhatKyRepository.ghi({ maTK, module: "KHO", hanhDong: "TU_CHOI_PHIEU_NHAP", noiDung: `Phiếu #${maPN}: ${lyDo}` });
@@ -169,14 +178,17 @@ export const khoService = {
       if (!Number.isInteger(slThucTe) || slThucTe < 0) loi[k] = "Số lượng thực tế là số nguyên ≥ 0";
       else if (slThucTe !== s.soLuongTon && !lyDoChenhLech) loi[k] = "Có chênh lệch – nhập lý do";
       else if (lyDoChenhLech && lyDoChenhLech.length > 500) loi[k] = "Lý do tối đa 500 ký tự";
-      return { maSach: s.maSach, slHeThong: s.soLuongTon, slThucTe, lyDoChenhLech };
+      return { sach: s, maSach: s.maSach, slHeThong: s.soLuongTon, slThucTe, lyDoChenhLech };
     });
     for (const c of await phieuKhoRepository.sachDangChoKiemKe(dong.map((d) => d.maSach))) {
       loi[`dong.${c.maSach}`] ??= `Đang nằm trong phiếu kiểm kê #${c.maPKK} chờ duyệt`;
     }
     if (Object.keys(loi).length) throw new LoiNghiepVu("Phiếu chưa hợp lệ, kiểm tra các dòng báo đỏ", loi);
 
-    const phieu = await phieuKhoRepository.taoKiemKe(prisma, maTK, ghiChu, dong);
+    const phieu = PhieuKiemKe.moi(maTK, ghiChu);
+    for (const d of dong) phieu.themChiTiet(d.sach, d.slThucTe, d.lyDoChenhLech); // slHeThong = tồn kho lúc lập
+    phieu.guiDuyet();
+    await phieu.luu();
     const soLech = dong.filter((d) => d.slThucTe !== d.slHeThong).length;
     await nhatKyRepository.ghi({ maTK, module: "KHO", hanhDong: "LAP_KIEM_KE", noiDung: `Phiếu #${phieu.maPKK}: ${dong.length} sách, ${soLech} sách lệch` });
     return phieu;
@@ -186,14 +198,14 @@ export const khoService = {
     await prisma.$transaction(async (tx) => {
       const phieu = await phieuKhoRepository.layKiemKe(tx, maPKK);
       if (!phieu) throw new LoiNghiepVu("Phiếu không tồn tại");
-      if (!(await phieuKhoRepository.xuLyKiemKe(tx, maPKK, { trangThai: "DA_DUYET", maTKDuyet: maTK }))) {
-        throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
-      }
+      if (!(await new PhieuKiemKe(phieu).duyet(maTK, tx))) throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
       const thayDoi: string[] = [];
       for (const c of phieu.chiTiets) {
-        const chenh = c.slThucTe - c.slHeThong;
+        const chenh = new ChiTietKiemKe(c).chenhLech();
         if (chenh === 0) continue;
-        if (!(await sachRepository.dieuChinhTon(tx, c.maSach, chenh))) {
+        const sach = new Sach(c.sach);
+        // Cộng chênh lệch vào tồn HIỆN TẠI (không ghi đè bằng slThucTe)
+        if (!(await (chenh > 0 ? sach.congTon(chenh, tx) : sach.truTon(-chenh, tx)))) {
           throw new LoiNghiepVu(`Không trừ được ${-chenh} cuốn "${c.sach.tenSach}": tồn kho hiện tại không đủ (một phần đang nằm trong đơn chưa thanh toán)`);
         }
         thayDoi.push(`${c.sach.tenSach} ${chenh > 0 ? "+" : ""}${chenh}`);
@@ -207,7 +219,7 @@ export const khoService = {
 
   async tuChoiKiemKe(maPKK: number, lyDoTho: string, maTK: number) {
     const lyDo = kiemTraLyDoTuChoi(lyDoTho);
-    if (!(await phieuKhoRepository.xuLyKiemKe(prisma, maPKK, { trangThai: "TU_CHOI", maTKDuyet: maTK, lyDoTuChoi: lyDo }))) {
+    if (!(await PhieuKiemKe.thamChieu(maPKK).tuChoi(maTK, lyDo))) {
       throw new LoiNghiepVu("Phiếu không tồn tại hoặc đã được xử lý");
     }
     await nhatKyRepository.ghi({ maTK, module: "KHO", hanhDong: "TU_CHOI_KIEM_KE", noiDung: `Phiếu #${maPKK}: ${lyDo}` });
@@ -234,7 +246,10 @@ export const khoService = {
     });
     if (Object.keys(loi).length) throw new LoiNghiepVu("Phiếu chưa hợp lệ, kiểm tra các dòng báo đỏ", loi);
 
-    const phieu = await phieuKhoRepository.taoXuatHuy(prisma, maTK, ghiChu, dong);
+    const phieu = PhieuXuatHuy.moi(maTK, ghiChu);
+    for (const d of dong) phieu.themChiTiet(d, d.soLuong, d.lyDo);
+    phieu.guiDuyet();
+    await phieu.luu();
     const tong = dong.reduce((t, d) => t + d.soLuong, 0);
     await nhatKyRepository.ghi({ maTK, module: "KHO", hanhDong: "LAP_XUAT_HUY", noiDung: `Phiếu #${phieu.maPXH}: ${dong.length} sách, ${tong} cuốn` });
     return phieu;
@@ -244,11 +259,9 @@ export const khoService = {
     await prisma.$transaction(async (tx) => {
       const phieu = await phieuKhoRepository.layXuatHuy(tx, maPXH);
       if (!phieu) throw new LoiNghiepVu("Phiếu không tồn tại");
-      if (!(await phieuKhoRepository.xuLyXuatHuy(tx, maPXH, { trangThai: "DA_DUYET", maTKDuyet: maTK }))) {
-        throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
-      }
+      if (!(await new PhieuXuatHuy(phieu).duyet(maTK, tx))) throw new LoiNghiepVu("Phiếu đã được xử lý trước đó");
       for (const c of phieu.chiTiets) {
-        if (!(await sachRepository.dieuChinhTon(tx, c.maSach, -c.soLuong))) {
+        if (!(await new Sach(c.sach).truTon(c.soLuong, tx))) {
           throw new LoiNghiepVu(`Không đủ "${c.sach.tenSach}" để hủy ${c.soLuong} cuốn (tồn kho đã giảm hoặc đang tạm giữ trong đơn chưa thanh toán)`);
         }
       }
@@ -261,7 +274,7 @@ export const khoService = {
 
   async tuChoiXuatHuy(maPXH: number, lyDoTho: string, maTK: number) {
     const lyDo = kiemTraLyDoTuChoi(lyDoTho);
-    if (!(await phieuKhoRepository.xuLyXuatHuy(prisma, maPXH, { trangThai: "TU_CHOI", maTKDuyet: maTK, lyDoTuChoi: lyDo }))) {
+    if (!(await PhieuXuatHuy.thamChieu(maPXH).tuChoi(maTK, lyDo))) {
       throw new LoiNghiepVu("Phiếu không tồn tại hoặc đã được xử lý");
     }
     await nhatKyRepository.ghi({ maTK, module: "KHO", hanhDong: "TU_CHOI_XUAT_HUY", noiDung: `Phiếu #${maPXH}: ${lyDo}` });

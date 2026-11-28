@@ -21,6 +21,19 @@ export const khachHangRepository = {
   /** Hạng cao nhất mà điểm tích lũy đạt được. */
   hangTheoDiem: (db: Db, diemTichLuy: number) =>
     db.hangThanhVien.findFirst({ where: { diemToiThieu: { lte: diemTichLuy } }, orderBy: { diemToiThieu: "desc" } }),
+  danhSachHang: (db: Db) => db.hangThanhVien.findMany({ orderBy: { diemToiThieu: "asc" } }),
+  capNhatMocHang: (db: Db, maHang: number, diemToiThieu: number, phanTramUuDai: number) =>
+    db.hangThanhVien.update({ where: { maHang }, data: { diemToiThieu, phanTramUuDai } }),
+
+  /** Cộng điểm sau thanh toán: tăng cả điểm hiện tại (để đổi) và điểm tích lũy (để xét hạng). */
+  congDiem: (db: Db, maKH: number, diem: number) =>
+    db.khachHang.update({ where: { maKH }, data: { diemHienTai: { increment: diem }, diemTichLuy: { increment: diem } } }),
+  /** Trừ điểm khách dùng để đổi – UPDATE có điều kiện, không trừ âm. Trả về true nếu trừ được. */
+  async truDiem(db: Db, maKH: number, diem: number) {
+    const n = await db.$executeRaw`UPDATE KhachHang SET diemHienTai = diemHienTai - ${diem} WHERE maKH = ${maKH} AND diemHienTai >= ${diem}`;
+    return n === 1;
+  },
+  capNhatHang: (db: Db, maKH: number, maHang: number) => db.khachHang.update({ where: { maKH }, data: { maHang } }),
 
   danhSach: (loc: LocKhachHang, boQua: number, lay: number) =>
     prisma.khachHang.findMany({

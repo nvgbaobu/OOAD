@@ -7,13 +7,18 @@ import { LoiNghiepVu } from "@/lib/loi";
 import type { Db } from "@/lib/db";
 import { sachRepository } from "@/lib/repositories/sachRepository";
 import { hoaDonRepository } from "@/lib/repositories/hoaDonRepository";
-import { khachHangRepository } from "@/lib/repositories/khachHangRepository";
-import { maGiamGiaRepository } from "@/lib/repositories/maGiamGiaRepository";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
 import { comboRepository } from "@/lib/repositories/comboRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { khachHangService, LoiKhachHang, SDT_HOP_LE } from "@/lib/services/khachHangService";
-import { tinhTienHoaDon, LoiTinhTien, type KetQuaTinhTien, type ComboTinhTien } from "@/lib/services/tinhTienHoaDon";
+import { LoiTinhTien, type KetQuaTinhTien, type ComboTinhTien } from "@/lib/services/tinhTienHoaDon";
+import { Sach } from "@/lib/thucThe/Sach";
+import { HoaDon } from "@/lib/thucThe/HoaDon";
+import { ChiTietHoaDon } from "@/lib/thucThe/ChiTietHoaDon";
+import { KhachHang } from "@/lib/thucThe/KhachHang";
+import { HangThanhVien } from "@/lib/thucThe/HangThanhVien";
+import { MaGiamGia } from "@/lib/thucThe/MaGiamGia";
+import { CauHinhHeThong } from "@/lib/thucThe/CauHinhHeThong";
 
 /** Lỗi nghiệp vụ – thông điệp hiển thị thẳng cho người dùng. */
 export class LoiPOS extends LoiNghiepVu {}
@@ -59,14 +64,10 @@ export const LY_DO_HUY = {
  * giải phóng tạm giữ, ghi nhật ký. Trả về false nếu đơn không còn DANG_LAP (đã bị hủy/thanh toán).
  */
 async function huyDonNhap(tx: Db, don: { maHD: number; maTK: number }, lyDo: string, chiHuyNeuTruoc?: Date) {
-  const n = chiHuyNeuTruoc
-    ? await tx.$executeRaw`UPDATE HoaDon SET trangThai = N'DA_HUY', lyDoHuy = ${lyDo}, thoiGianCapNhat = SYSDATETIME()
-        WHERE maHD = ${don.maHD} AND trangThai = N'DANG_LAP' AND thoiGianCapNhat < ${chiHuyNeuTruoc}`
-    : await tx.$executeRaw`UPDATE HoaDon SET trangThai = N'DA_HUY', lyDoHuy = ${lyDo}, thoiGianCapNhat = SYSDATETIME()
-        WHERE maHD = ${don.maHD} AND trangThai = N'DANG_LAP'`;
-  if (n !== 1) return false;
-  const chiTiets = await tx.chiTietHoaDon.findMany({ where: { maHD: don.maHD } });
-  for (const c of chiTiets) await sachRepository.giamTamGiu(tx, c.maSach, c.soLuong);
+  const hoaDon = HoaDon.thamChieu(don.maHD, "DANG_LAP");
+  if (!(await hoaDon.huyHoaDon(lyDo, tx, chiHuyNeuTruoc))) return false;
+  const chiTiets = await hoaDon.layDanhSachChiTiet(tx);
+  for (const c of chiTiets) await Sach.thamChieu(c.maSach).giaiPhong(c.soLuong, tx);
   await nhatKyRepository.ghi(
     { maTK: don.maTK, module: MODULE, hanhDong: "HUY_DON_DANG_LAP", noiDung: `Đơn nháp #${don.maHD} (${chiTiets.length} dòng) – ${lyDo}` },
     tx,
@@ -79,11 +80,7 @@ async function huyDonNhap(tx: Db, don: { maHD: number; maTK: number }, lyDo: str
  * Trả về các đơn vừa bị hủy.
  */
 export async function huyDonQuaHan() {
-  const moc = new Date(Date.now() - HAN_DON_NHAP_PHUT * 60_000);
-  const quaHan = await prisma.hoaDon.findMany({
-    where: { trangThai: "DANG_LAP", thoiGianCapNhat: { lt: moc } },
-    select: { maHD: true, maTK: true },
-  });
+  const { moc, dons: quaHan } = await HoaDon.timDonQuaHan(HAN_DON_NHAP_PHUT);
   const daHuy: typeof quaHan = [];
   for (const don of quaHan) {
     if (await prisma.$transaction((tx) => huyDonNhap(tx, don, LY_DO_HUY.QUA_HAN, moc))) daHuy.push(don);
@@ -118,20 +115,15 @@ const chamDon = (db: Db, maHD: number) => db.hoaDon.update({ where: { maHD }, da
 
 // ───────────── Hàm phụ ─────────────
 
-function kiemTraMaConHieuLuc(ma: { trangThai: string; ngayBatDau: Date; ngayKetThuc: Date; daSuDung: number; soLuongToiDa: number }) {
-  const bayGio = new Date();
-  if (ma.trangThai !== "HOAT_DONG") return "Mã giảm giá đã ngừng hoạt động";
-  if (bayGio < ma.ngayBatDau) return "Mã giảm giá chưa đến ngày áp dụng";
-  if (bayGio > ma.ngayKetThuc) return "Mã giảm giá đã hết hạn";
-  if (ma.daSuDung >= ma.soLuongToiDa) return "Mã giảm giá đã hết lượt sử dụng";
-  return null;
+function kiemTraMaConHieuLuc(ma: NonNullable<DonDangLap["maGiamGia"]>) {
+  return new MaGiamGia(ma).lyDoKhongDung();
 }
 
 /** Tính tiền cho đơn đang lập; ném LoiTinhTien nếu mã/điểm không còn hợp lệ. */
 function tinhTienDon(don: DonDangLap, { cauHinh, combos }: BoiCanh, ghiDe?: { maGiamGia?: DonDangLap["maGiamGia"]; diemSuDung?: number }): KetQuaTinhTien {
   const ma = ghiDe && "maGiamGia" in ghiDe ? ghiDe.maGiamGia : don.maGiamGia;
   const kh = don.khachHang;
-  return tinhTienHoaDon({
+  return new HoaDon(don).tinhTongTien({
     dong: don.chiTiets.map((c) => ({
       maSach: c.maSach, soLuong: c.soLuong, donGia: Number(c.donGiaBan),
       thanhTien: Number(c.thanhTien),
@@ -141,7 +133,7 @@ function tinhTienDon(don: DonDangLap, { cauHinh, combos }: BoiCanh, ghiDe?: { ma
     maGiamGia: ma
       ? { loaiGiam: ma.loaiGiam as "PHAN_TRAM" | "SO_TIEN", giaTriGiam: Number(ma.giaTriGiam), giaTriDonToiThieu: Number(ma.giaTriDonToiThieu) }
       : null,
-    diemSuDung: ghiDe?.diemSuDung ?? don.diemSuDung,
+    diemSuDung: ghiDe?.diemSuDung,
     diemHienTai: kh?.diemHienTai ?? 0,
     giaTriMotDiem: Number(cauHinh.giaTriMotDiem),
     tyLeQuyDoiDiem: Number(cauHinh.tyLeQuyDoiDiem),
@@ -200,29 +192,15 @@ export const posService = {
     if (!Number.isInteger(soLuong) || soLuong <= 0) throw new LoiPOS("Số lượng không hợp lệ");
     await donDepTruocThaoTac(maTK);
     await prisma.$transaction(async (tx) => {
-      const sach = await sachRepository.timTheoMa(tx, maSach);
+      const sach = await Sach.timTheoMa(maSach, tx);
       if (!sach || sach.trangThai !== "DANG_BAN") throw new LoiPOS("Sách không tồn tại hoặc đã ngừng kinh doanh");
-      if (!(await sachRepository.tangTamGiu(tx, maSach, soLuong))) {
-        throw new LoiPOS(`Vượt quá số lượng tồn: "${sach.tenSach}" chỉ còn ${sach.soLuongTon - sach.soLuongTamGiu} cuốn có thể bán`);
+      const conBan = sach.soLuongKhaDung();
+      if (!(await sach.tamGiu(soLuong, tx))) {
+        throw new LoiPOS(`Vượt quá số lượng tồn: "${sach.tenSach}" chỉ còn ${conBan} cuốn có thể bán`);
       }
-      const don = await layHoacTaoDon(tx, maTK);
+      const don = new HoaDon(await layHoacTaoDon(tx, maTK));
       await chamDon(tx, don.maHD);
-      const dong = await hoaDonRepository.layChiTiet(tx, don.maHD, maSach);
-      if (dong) {
-        const soLuongMoi = dong.soLuong + soLuong;
-        await tx.chiTietHoaDon.update({
-          where: { maHD_maSach: { maHD: don.maHD, maSach } },
-          data: { soLuong: soLuongMoi, thanhTien: Number(dong.donGiaBan) * soLuongMoi },
-        });
-      } else {
-        // Snapshot giá bán tại thời điểm thêm vào đơn
-        await tx.chiTietHoaDon.create({
-          data: {
-            maHD: don.maHD, maSach, soLuong,
-            donGiaBan: sach.giaBan, thanhTien: Number(sach.giaBan) * soLuong,
-          },
-        });
-      }
+      await don.themChiTiet(sach, soLuong, tx); // cộng dồn nếu đã có, chưa có thì thêm dòng với giá bán hiện tại
     });
   },
 
@@ -233,29 +211,24 @@ export const posService = {
     await prisma.$transaction(async (tx) => {
       const don = await layDonBatBuoc(tx, maTK);
       await chamDon(tx, don.maHD);
-      const dong = await hoaDonRepository.layChiTiet(tx, don.maHD, maSach);
-      if (!dong) throw new LoiPOS("Sách không có trong đơn");
+      const dongTho = await hoaDonRepository.layChiTiet(tx, don.maHD, maSach);
+      if (!dongTho) throw new LoiPOS("Sách không có trong đơn");
+      const dong = new ChiTietHoaDon(dongTho);
       const chenh = soLuongMoi - dong.soLuong;
-      if (chenh > 0 && !(await sachRepository.tangTamGiu(tx, maSach, chenh))) {
-        const sach = await sachRepository.timTheoMa(tx, maSach);
-        throw new LoiPOS(`Vượt quá số lượng tồn – chỉ còn thêm được ${sach ? sach.soLuongTon - sach.soLuongTamGiu : 0} cuốn`);
+      const sach = Sach.thamChieu(maSach);
+      if (chenh > 0 && !(await sach.tamGiu(chenh, tx))) {
+        const s = await Sach.timTheoMa(maSach, tx);
+        throw new LoiPOS(`Vượt quá số lượng tồn – chỉ còn thêm được ${s ? s.soLuongKhaDung() : 0} cuốn`);
       }
-      if (chenh < 0) await sachRepository.giamTamGiu(tx, maSach, -chenh);
-      if (soLuongMoi === 0) {
-        await tx.chiTietHoaDon.delete({ where: { maHD_maSach: { maHD: don.maHD, maSach } } });
-      } else {
-        await tx.chiTietHoaDon.update({
-          where: { maHD_maSach: { maHD: don.maHD, maSach } },
-          data: { soLuong: soLuongMoi, thanhTien: Number(dong.donGiaBan) * soLuongMoi },
-        });
-      }
+      if (chenh < 0) await sach.giaiPhong(-chenh, tx);
+      await dong.capNhatSoLuong(soLuongMoi, tx); // 0 = bỏ dòng khỏi đơn
     });
   },
 
   async chonKhachHang(maTK: number, soDienThoai: string) {
     await donDepTruocThaoTac(maTK);
     if (!SDT_HOP_LE.test(soDienThoai)) throw new LoiPOS("Số điện thoại gồm 10 chữ số, bắt đầu bằng 0");
-    const kh = await khachHangRepository.timTheoSoDienThoai(prisma, soDienThoai);
+    const kh = await KhachHang.timTheoSDT(soDienThoai);
     if (!kh) throw new KhongTimThayKhachHang(soDienThoai);
     const don = await layHoacTaoDon(prisma, maTK);
     await prisma.hoaDon.update({ where: { maHD: don.maHD }, data: { maKH: kh.maKH, diemSuDung: 0, thoiGianCapNhat: new Date() } });
@@ -286,9 +259,9 @@ export const posService = {
   async apMaGiamGia(maTK: number, maCode: string) {
     await donDepTruocThaoTac(maTK);
     const [don, boiCanh] = await Promise.all([layDonBatBuoc(prisma, maTK), layBoiCanh()]);
-    const ma = await maGiamGiaRepository.timTheoCode(prisma, maCode);
+    const ma = await MaGiamGia.timTheoMaCode(maCode);
     if (!ma) throw new LoiPOS(`Mã "${maCode}" không tồn tại`);
-    const loi = kiemTraMaConHieuLuc(ma);
+    const loi = ma.lyDoKhongDung();
     if (loi) throw new LoiPOS(loi);
     try {
       tinhTienDon(don, boiCanh, { maGiamGia: ma, diemSuDung: 0 }); // kiểm tra đơn tối thiểu
@@ -360,8 +333,7 @@ export const posService = {
       const { cauHinh } = boiCanh;
       if (don.chiTiets.length === 0) throw new LoiPOS("Đơn hàng chưa có sách");
 
-      const batPhuongThuc = { TIEN_MAT: cauHinh.ttTienMat, QUET_THE: cauHinh.ttQuetThe, MA_QR: cauHinh.ttMaQR };
-      if (!batPhuongThuc[phuongThucTT]) throw new LoiPOS("Phương thức thanh toán không được bật");
+      if (!new CauHinhHeThong(cauHinh).batPhuongThuc(phuongThucTT)) throw new LoiPOS("Phương thức thanh toán không được bật");
 
       // Kiểm tra lại mã giảm giá lúc thanh toán (có thể đã hết lượt/hết hạn từ lúc áp)
       if (don.maGiamGia) {
@@ -384,45 +356,35 @@ export const posService = {
 
       // Kho: trừ tồn + giải phóng tạm giữ
       for (const c of don.chiTiets) {
-        if (!(await sachRepository.xuatBan(tx, c.maSach, c.soLuong))) {
+        if (!(await Sach.thamChieu(c.maSach).truTon(c.soLuong, tx, { daTamGiu: true }))) {
           throw new LoiPOS(`Không đủ tồn kho cho "${c.sach.tenSach}"`);
         }
       }
 
-      if (don.maGiamGia && !(await maGiamGiaRepository.tangLuotDung(tx, don.maGiamGia.maMGG))) {
+      if (don.maGiamGia && !(await new MaGiamGia(don.maGiamGia).tangLuotDung(tx))) {
         throw new LoiPOS("Mã giảm giá vừa hết lượt sử dụng. Hãy bỏ mã rồi thanh toán lại");
       }
 
       // Điểm khách hàng: trừ điểm đã dùng, cộng điểm mới, xét thăng hạng
       if (don.khachHang) {
-        const kh = don.khachHang;
-        const diemTichLuy = kh.diemTichLuy + tien.diemCong;
-        const hang = await khachHangRepository.hangTheoDiem(tx, diemTichLuy);
-        await tx.khachHang.update({
-          where: { maKH: kh.maKH },
-          data: {
-            diemHienTai: kh.diemHienTai - don.diemSuDung + tien.diemCong,
-            diemTichLuy,
-            ...(hang && hang.diemToiThieu > kh.hangThanhVien.diemToiThieu && { maHang: hang.maHang }),
-          },
-        });
+        const kh = new KhachHang(don.khachHang);
+        if (!(await kh.truDiem(don.diemSuDung, tx))) throw new LoiPOS("Khách không đủ điểm");
+        await kh.congDiem(tien.diemCong, tx);
+        // Chỉ thăng hạng, không hạ (hạ hạng chỉ xảy ra khi hủy hóa đơn)
+        const hang = await HangThanhVien.xacDinhHang(kh.diemTichLuy, tx);
+        if (hang && hang.diemToiThieu > don.khachHang.hangThanhVien.diemToiThieu) await kh.capNhatHang(hang, tx);
       }
 
       // Có điều kiện: nếu đơn vừa bị tự hủy ở request khác thì rollback toàn bộ
-      const capNhat = await tx.hoaDon.updateMany({
-        where: { maHD: don.maHD, trangThai: "DANG_LAP" },
-        data: {
-          trangThai: "DA_THANH_TOAN",
-          thoiGianTao: new Date(), // = thời điểm thanh toán (dùng cho báo cáo doanh thu)
-          thoiGianCapNhat: new Date(),
-          tamTinh: tien.tamTinh, giamCombo: tien.giamCombo, giamHangThe: tien.giamHang, giamMaGiamGia: tien.giamMa,
-          giamDiem: tien.giamDiem, thueVAT: tien.thueVAT, tongTien: tien.tongTien,
-          phuongThucTT,
-          tienKhachDua: phuongThucTT === "TIEN_MAT" ? tienKhachDua : tien.tongTien,
-        },
+      const daThanhToan = await new HoaDon(don).capNhatTrangThai("DA_THANH_TOAN", tx, {
+        thoiGianTao: new Date(), // = thời điểm thanh toán (dùng cho báo cáo doanh thu)
+        tamTinh: tien.tamTinh, giamCombo: tien.giamCombo, giamHangThe: tien.giamHang, giamMaGiamGia: tien.giamMa,
+        giamDiem: tien.giamDiem, thueVAT: tien.thueVAT, tongTien: tien.tongTien,
+        phuongThucTT,
+        tienKhachDua: phuongThucTT === "TIEN_MAT" ? tienKhachDua : tien.tongTien,
       });
 
-      if (capNhat.count !== 1) throw new LoiPOS("Đơn không còn ở trạng thái đang lập (có thể đã tự hủy). Hãy lập đơn mới.");
+      if (!daThanhToan) throw new LoiPOS("Đơn không còn ở trạng thái đang lập (có thể đã tự hủy). Hãy lập đơn mới.");
 
       await nhatKyRepository.ghi(
         { maTK, module: MODULE, hanhDong: "THANH_TOAN", noiDung: `HĐ #${don.maHD}, tổng ${tien.tongTien}đ, ${phuongThucTT}` },

@@ -7,6 +7,7 @@
 import bcrypt from "bcryptjs";
 import { LoiNghiepVu } from "@/lib/loi";
 import { taiKhoanRepository } from "@/lib/repositories/taiKhoanRepository";
+import { TaiKhoan } from "@/lib/thucThe/TaiKhoan";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { posService, LY_DO_HUY } from "@/lib/services/posService";
 import type { VaiTro } from "@/lib/auth/token";
@@ -81,7 +82,8 @@ export const taiKhoanService = {
     }
     const trangThai = khoa ? "KHOA" : "HOAT_DONG";
     if (tk.trangThai === trangThai) return;
-    await taiKhoanRepository.capNhat(maTK, { trangThai });
+    const taiKhoan = new TaiKhoan(tk);
+    await (khoa ? taiKhoan.khoa() : taiKhoan.moKhoa());
     const huyDon = khoa ? await posService.huyDonDangLapCua(maTK, LY_DO_HUY.KHOA_TAI_KHOAN) : false;
     await nhatKyRepository.ghi({
       maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: khoa ? "KHOA" : "MO_KHOA",
@@ -97,7 +99,7 @@ export const taiKhoanService = {
     kiemTraMatKhau(matKhau, "matKhauMoi", loi);
     if (!loi.matKhauMoi && matKhau !== nhapLai) loi.nhapLai = "Nhập lại không khớp";
     nemNeuLoi(loi);
-    await taiKhoanRepository.capNhat(maTK, { matKhauHash: await bcrypt.hash(matKhau, 10) });
+    await new TaiKhoan(tk).doiMatKhau(matKhau);
     await nhatKyRepository.ghi({ maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: "DAT_LAI_MAT_KHAU", noiDung: `#${maTK} ${tk.hoTen}` });
   },
 
@@ -105,13 +107,14 @@ export const taiKhoanService = {
   async doiMatKhau(maTK: number, matKhauCu: string, matKhauMoi: string, nhapLai: string) {
     const tk = await taiKhoanRepository.timTheoMa(maTK);
     if (!tk) throw new LoiNghiepVu("Tài khoản không tồn tại");
+    const taiKhoan = new TaiKhoan(tk);
     const loi: Record<string, string> = {};
-    if (!(await bcrypt.compare(matKhauCu, tk.matKhauHash))) loi.matKhauCu = "Mật khẩu hiện tại không đúng";
+    if (!(await taiKhoan.kiemTraMatKhau(matKhauCu))) loi.matKhauCu = "Mật khẩu hiện tại không đúng";
     kiemTraMatKhau(matKhauMoi, "matKhauMoi", loi);
     if (!loi.matKhauMoi && matKhauMoi === matKhauCu) loi.matKhauMoi = "Mật khẩu mới phải khác mật khẩu hiện tại";
     if (!loi.matKhauMoi && matKhauMoi !== nhapLai) loi.nhapLai = "Nhập lại không khớp";
     nemNeuLoi(loi);
-    await taiKhoanRepository.capNhat(maTK, { matKhauHash: await bcrypt.hash(matKhauMoi, 10) });
+    await taiKhoan.doiMatKhau(matKhauMoi);
     await nhatKyRepository.ghi({ maTK, module: "TAI_KHOAN", hanhDong: "DOI_MAT_KHAU" });
   },
 };

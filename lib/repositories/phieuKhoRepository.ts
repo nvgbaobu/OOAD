@@ -22,8 +22,8 @@ export const phieuKhoRepository = {
         chiTiets: { include: { sach: true }, orderBy: { sach: { tenSach: "asc" } } },
       },
     }),
-  taoKiemKe: (db: Db, maTKLap: number, ghiChu: string | null, dong: { maSach: number; slHeThong: number; slThucTe: number; lyDoChenhLech: string | null }[]) =>
-    db.phieuKiemKe.create({ data: { maTKLap, ghiChu, trangThai: "CHO_DUYET", chiTiets: { create: dong } } }),
+  taoKiemKe: (db: Db, maTKLap: number, ghiChu: string | null, dong: { maSach: number; slHeThong: number; slThucTe: number; lyDoChenhLech: string | null }[], trangThai = "CHO_DUYET") =>
+    db.phieuKiemKe.create({ data: { maTKLap, ghiChu, trangThai, chiTiets: { create: dong } } }),
   /** Sách đang nằm trong phiếu kiểm kê chờ duyệt khác (tránh duyệt 2 lần cùng chênh lệch). */
   sachDangChoKiemKe: (maSachs: number[]) =>
     prisma.chiTietKiemKe.findMany({
@@ -52,8 +52,13 @@ export const phieuKhoRepository = {
         chiTiets: { include: { sach: true }, orderBy: { sach: { tenSach: "asc" } } },
       },
     }),
-  taoXuatHuy: (db: Db, maTKLap: number, ghiChu: string | null, dong: { maSach: number; soLuong: number; lyDo: string }[]) =>
-    db.phieuXuatHuy.create({ data: { maTKLap, ghiChu, trangThai: "CHO_DUYET", chiTiets: { create: dong } } }),
+  taoXuatHuy: (db: Db, maTKLap: number, ghiChu: string | null, dong: { maSach: number; soLuong: number; lyDo: string }[], trangThai = "CHO_DUYET") =>
+    db.phieuXuatHuy.create({ data: { maTKLap, ghiChu, trangThai, chiTiets: { create: dong } } }),
+  /** Sửa SL hủy 1 dòng, chỉ khi phiếu còn CHO_DUYET. Trả về true nếu sửa được. */
+  async suaSoLuongChiTietXuatHuy(db: Db, maPXH: number, maSach: number, soLuong: number) {
+    const r = await db.chiTietXuatHuy.updateMany({ where: { maPXH, maSach, phieuXuatHuy: { trangThai: "CHO_DUYET" } }, data: { soLuong } });
+    return r.count === 1;
+  },
   async xuLyXuatHuy(db: Db, maPXH: number, data: { trangThai: string; maTKDuyet: number; lyDoTuChoi?: string }) {
     const r = await db.phieuXuatHuy.updateMany({ where: { maPXH, trangThai: "CHO_DUYET" }, data: { ...data, ngayDuyet: new Date() } });
     return r.count === 1;
@@ -75,8 +80,8 @@ export const phieuKhoRepository = {
         chiTiets: { include: { sach: true }, orderBy: { sach: { tenSach: "asc" } } },
       },
     }),
-  taoPhieuNhap: (db: Db, maTKLap: number, maNCC: number, ghiChu: string | null, tongTien: number, dong: { maSach: number; soLuong: number; giaNhap: number }[]) =>
-    db.phieuNhap.create({ data: { maTKLap, maNCC, ghiChu, tongTien, trangThai: "CHO_DUYET", chiTiets: { create: dong } } }),
+  taoPhieuNhap: (db: Db, maTKLap: number, maNCC: number, ghiChu: string | null, tongTien: number, dong: { maSach: number; soLuong: number; giaNhap: number }[], trangThai = "CHO_DUYET") =>
+    db.phieuNhap.create({ data: { maTKLap, maNCC, ghiChu, tongTien, trangThai, chiTiets: { create: dong } } }),
   /** UC7.3 2a – sửa SL thực nhận 1 dòng, chỉ khi phiếu còn CHO_DUYET (UPDATE có điều kiện). Trả về true nếu sửa được. */
   async suaSoLuongChiTietNhap(db: Db, maPN: number, maSach: number, soLuong: number) {
     const r = await db.chiTietPhieuNhap.updateMany({ where: { maPN, maSach, phieuNhap: { trangThai: "CHO_DUYET" } }, data: { soLuong } });

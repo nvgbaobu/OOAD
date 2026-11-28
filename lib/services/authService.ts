@@ -1,6 +1,6 @@
 // Nghiệp vụ đăng nhập (BUS)
 import bcrypt from "bcryptjs";
-import { taiKhoanRepository } from "@/lib/repositories/taiKhoanRepository";
+import { TaiKhoan } from "@/lib/thucThe/TaiKhoan";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import type { VaiTro } from "@/lib/auth/token";
 
@@ -13,8 +13,9 @@ export type KetQuaDangNhap =
 
 export const authService = {
   async dangNhap(soDienThoai: string, matKhau: string): Promise<KetQuaDangNhap> {
-    const tk = await taiKhoanRepository.timTheoSoDienThoai(soDienThoai);
-    const dungMatKhau = await bcrypt.compare(matKhau, tk?.matKhauHash ?? HASH_GIA);
+    const tk = await TaiKhoan.timTheoSDT(soDienThoai);
+    // SĐT không tồn tại vẫn so với hash giả → thời gian phản hồi như nhau
+    const dungMatKhau = tk ? await tk.kiemTraMatKhau(matKhau) : await bcrypt.compare(matKhau, HASH_GIA);
 
     if (!tk || !dungMatKhau) {
       await nhatKyRepository.ghi({

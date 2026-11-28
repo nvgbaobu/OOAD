@@ -13,6 +13,7 @@ import { maGiamGiaRepository, type TinhTrangMa } from "@/lib/repositories/maGiam
 import { comboRepository } from "@/lib/repositories/comboRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { docNgayInput } from "@/lib/dinhDang";
+import { Combo } from "@/lib/thucThe/Combo";
 
 export const TINH_TRANG_MA: Record<TinhTrangMa, string> = {
   DANG_AP_DUNG: "Đang áp dụng", CHUA_BAT_DAU: "Chưa bắt đầu", HET_HAN: "Hết hạn", HET_LUOT: "Hết lượt", NGUNG: "Ngừng hoạt động",
@@ -90,11 +91,14 @@ async function kiemTraCombo(f: FormCombo) {
   }
   // UC8.2 luồng 3a: combo phải gồm ít nhất 2 đầu sách khác nhau
   if (dong.length < 2) loi.dong = "Combo phải có ít nhất 2 đầu sách";
-  const giaLe = dong.reduce((t, d) => t + Number(sachs.get(d.maSach)?.giaBan ?? 0) * (d.soLuong || 0), 0);
+  // Giá lẻ = Σ (SL × giá bán hiện tại) – tính bằng lớp Combo / ChiTietCombo
+  const combo = Combo.moi({ tenCombo });
+  for (const d of dong) combo.themChiTiet(sachs.get(d.maSach)!, d.soLuong || 0);
+  const giaLe = combo.tinhTongGiaLe();
   if (!Number.isInteger(giaCombo) || giaCombo <= 0) loi.giaCombo = "Giá combo là số tiền > 0";
   else if (!loi.dong && giaCombo >= giaLe) loi.giaCombo = `Giá Combo không có ưu đãi – phải thấp hơn tổng giá lẻ (${vnd(giaLe)})`;
   if (Object.keys(loi).length) throw new LoiNghiepVu("Dữ liệu chưa hợp lệ, kiểm tra các ô báo đỏ", loi);
-  return { tenCombo, giaCombo, ...ngay, dong, giaLe };
+  return { tenCombo, giaCombo, ...ngay, dong, giaLe, combo };
 }
 
 export const khuyenMaiService = {
@@ -149,13 +153,10 @@ export const khuyenMaiService = {
 
   async luuCombo(maCombo: number | null, f: FormCombo, maTK: number) {
     const d = await kiemTraCombo(f);
-    const data = { tenCombo: d.tenCombo, giaCombo: d.giaCombo, ngayBatDau: d.ngayBatDau, ngayKetThuc: d.ngayKetThuc };
-    const combo = await prisma.$transaction(async (tx) => {
-      if (maCombo === null) return tx.combo.create({ data: { ...data, trangThai: "HOAT_DONG", chiTiets: { create: d.dong } } });
-      if (!(await tx.combo.findUnique({ where: { maCombo } }))) throw new LoiNghiepVu("Combo không tồn tại");
-      await tx.chiTietCombo.deleteMany({ where: { maCombo } });
-      return tx.combo.update({ where: { maCombo }, data: { ...data, chiTiets: { create: d.dong } } });
+    const combo = Object.assign(d.combo, {
+      maCombo: maCombo ?? 0, giaCombo: d.giaCombo, ngayBatDau: d.ngayBatDau, ngayKetThuc: d.ngayKetThuc,
     });
+    if (!(await combo.luu())) throw new LoiNghiepVu("Combo không tồn tại");
     await nhatKyRepository.ghi({
       maTK, module: "COMBO", hanhDong: maCombo === null ? "THEM" : "SUA",
       noiDung: `#${combo.maCombo} ${d.tenCombo}: ${vnd(d.giaCombo)} (giá lẻ ${vnd(d.giaLe)}), ${d.dong.length} sách`,
