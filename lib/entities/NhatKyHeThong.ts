@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Db } from "@/lib/db";
 import type { Prisma, NhatKyHeThong as NhatKyHeThongModel } from "@/lib/generated/prisma/client";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { nhatKyRepository, type GhiNhatKy } from "@/lib/repositories/nhatKyRepository";
 
 export class NhatKyHeThong implements NhatKyHeThongModel {
   // ───── Thuộc tính ─────
@@ -19,9 +19,9 @@ export class NhatKyHeThong implements NhatKyHeThongModel {
 
   // ───── Phương thức ─────
 
-  /** Ghi một thao tác quan trọng (thời gian do CSDL ghi). */
-  static async ghiNhatKy(maTK: number | null | undefined, module: string, hanhDong: string, noiDung?: string, db: Db = prisma) {
-    return new NhatKyHeThong(await nhatKyRepository.ghi({ maTK, module, hanhDong, noiDung }, db));
+  /** Ghi một thao tác quan trọng { maTK, module, hanhDong, noiDung } (thời gian do CSDL ghi). */
+  static async ghiNhatKy(nk: GhiNhatKy, db: Db = prisma): Promise<NhatKyHeThong> {
+    return new NhatKyHeThong(await nhatKyRepository.ghi(nk, db));
   }
 
   /** Tra cứu nhật ký theo điều kiện (module, người, khoảng thời gian, từ khóa), mới nhất trước. */

@@ -1,10 +1,10 @@
 // Nghiệp vụ nhà cung cấp (chỉ Admin).
 // Không xóa NCC đã có phiếu nhập (giữ lịch sử) – chuyển "Ngừng giao dịch": không chọn được khi lập phiếu nhập mới.
 // NCC chưa từng có phiếu nhập thì xóa được (nhập nhầm).
-import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { nhaCungCapRepository, type LocNhaCungCap } from "@/lib/repositories/nhaCungCapRepository";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { NhaCungCap } from "@/lib/entities/NhaCungCap";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 export const TRANG_THAI_NCC = { DANG_GIAO_DICH: "Đang giao dịch", NGUNG_GIAO_DICH: "Ngừng giao dịch" } as const;
 export type TrangThaiNCC = keyof typeof TRANG_THAI_NCC;
@@ -30,7 +30,7 @@ async function kiemTra(f: FormNhaCungCap, maNCCDangSua?: number) {
   // MST doanh nghiệp: 10 số; chi nhánh: 10 số + "-" + 3 số
   if (!/^\d{10}(-\d{3})?$/.test(maSoThue)) loi.maSoThue = "Mã số thuế gồm 10 số (chi nhánh: 10 số-3 số)";
   else {
-    const trung = await nhaCungCapRepository.timTheoMaSoThue(maSoThue);
+    const trung = await NhaCungCap.timTheoMST(maSoThue);
     if (trung && trung.maNCC !== maNCCDangSua) loi.maSoThue = `Mã số thuế đã có: "${trung.tenNCC}"`;
   }
   if (diaChi && diaChi.length > 255) loi.diaChi = "Tối đa 255 ký tự";
@@ -42,52 +42,51 @@ async function kiemTra(f: FormNhaCungCap, maNCCDangSua?: number) {
 
 export const nhaCungCapService = {
   danhSach: (loc: LocNhaCungCap) => nhaCungCapRepository.danhSach(loc),
-  dangGiaoDich: () => nhaCungCapRepository.dangGiaoDich(),
 
   async layChiTiet(maNCC: number) {
     const ncc = await nhaCungCapRepository.timTheoMa(maNCC);
     if (!ncc) return null;
     const [thongKe, phieuNhaps] = await Promise.all([
       nhaCungCapRepository.thongKeNhap(maNCC),
-      prisma.phieuNhap.findMany({
-        where: { maNCC }, orderBy: { maPN: "desc" }, take: 20,
-        select: { maPN: true, ngayLap: true, trangThai: true, tongTien: true, nguoiLap: { select: { hoTen: true } } },
-      }),
+      nhaCungCapRepository.phieuNhapGanDay(maNCC),
     ]);
     return { ncc, thongKe, phieuNhaps };
   },
 
   async tao(f: FormNhaCungCap, maTK: number) {
     const d = await kiemTra(f);
-    const ncc = await nhaCungCapRepository.tao({ ...d, trangThaiHopTac: laTrangThai(f.trangThaiHopTac) ? f.trangThaiHopTac : "DANG_GIAO_DICH" });
-    await nhatKyRepository.ghi({ maTK, module: "NHA_CUNG_CAP", hanhDong: "THEM", noiDung: `#${ncc.maNCC} ${ncc.tenNCC} (MST ${ncc.maSoThue})` });
+    const ncc = NhaCungCap.moi({ ...d, trangThaiHopTac: laTrangThai(f.trangThaiHopTac) ? f.trangThaiHopTac : "DANG_GIAO_DICH" });
+    await ncc.luu();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "NHA_CUNG_CAP", hanhDong: "THEM", noiDung: `#${ncc.maNCC} ${ncc.tenNCC} (MST ${ncc.maSoThue})` });
     return ncc;
   },
 
   async capNhat(maNCC: number, f: FormNhaCungCap, maTK: number) {
-    if (!(await nhaCungCapRepository.timTheoMa(maNCC))) throw new LoiNghiepVu("Nhà cung cấp không tồn tại");
+    const ncc = await NhaCungCap.timTheoMa(maNCC);
+    if (!ncc) throw new LoiNghiepVu("Nhà cung cấp không tồn tại");
     const d = await kiemTra(f, maNCC);
-    await nhaCungCapRepository.capNhat(maNCC, d);
-    await nhatKyRepository.ghi({ maTK, module: "NHA_CUNG_CAP", hanhDong: "SUA", noiDung: `#${maNCC} ${d.tenNCC}` });
+    Object.assign(ncc, d);
+    await ncc.luu();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "NHA_CUNG_CAP", hanhDong: "SUA", noiDung: `#${maNCC} ${d.tenNCC}` });
     if (laTrangThai(f.trangThaiHopTac)) await nhaCungCapService.doiTrangThai(maNCC, f.trangThaiHopTac, maTK);
   },
 
   async doiTrangThai(maNCC: number, trangThai: TrangThaiNCC, maTK: number) {
-    const ncc = await nhaCungCapRepository.timTheoMa(maNCC);
+    const ncc = await NhaCungCap.timTheoMa(maNCC);
     if (!ncc) throw new LoiNghiepVu("Nhà cung cấp không tồn tại");
     if (ncc.trangThaiHopTac === trangThai) return;
-    await nhaCungCapRepository.capNhat(maNCC, { trangThaiHopTac: trangThai });
-    await nhatKyRepository.ghi({
+    await ncc.capNhatTrangThai(trangThai);
+    await NhatKyHeThong.ghiNhatKy({
       maTK, module: "NHA_CUNG_CAP", hanhDong: trangThai === "DANG_GIAO_DICH" ? "MO_LAI" : "NGUNG_GIAO_DICH", noiDung: `#${maNCC} ${ncc.tenNCC}`,
     });
   },
 
   async xoa(maNCC: number, maTK: number) {
-    const ncc = await nhaCungCapRepository.timTheoMa(maNCC);
+    const ncc = await NhaCungCap.timTheoMa(maNCC);
     if (!ncc) throw new LoiNghiepVu("Nhà cung cấp không tồn tại");
-    const soPhieu = await prisma.phieuNhap.count({ where: { maNCC } });
+    const soPhieu = await ncc.soPhieuNhap();
     if (soPhieu) throw new LoiNghiepVu(`Không xóa được: đã có ${soPhieu} phiếu nhập. Hãy chuyển "Ngừng giao dịch".`);
-    await prisma.nhaCungCap.delete({ where: { maNCC } });
-    await nhatKyRepository.ghi({ maTK, module: "NHA_CUNG_CAP", hanhDong: "XOA", noiDung: `${ncc.tenNCC} (MST ${ncc.maSoThue})` });
+    await ncc.xoa();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "NHA_CUNG_CAP", hanhDong: "XOA", noiDung: `${ncc.tenNCC} (MST ${ncc.maSoThue})` });
   },
 };

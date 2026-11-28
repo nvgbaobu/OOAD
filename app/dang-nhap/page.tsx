@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { layNguoiDung, trangChuTheoVaiTro } from "@/lib/auth/dal";
-import { prisma } from "@/lib/prisma";
+import { caiDatService } from "@/lib/services/caiDatService";
 import FormDangNhap from "./FormDangNhap";
 
 export const metadata: Metadata = { title: "Đăng nhập" };
@@ -10,7 +10,7 @@ export default async function TrangDangNhap() {
   const nd = await layNguoiDung();
   if (nd) redirect(trangChuTheoVaiTro(nd.vaiTro));
 
-  const cauHinh = await prisma.cauHinhHeThong.findUnique({ where: { maCH: 1 }, select: { tenCuaHang: true } });
+  const cauHinh = { tenCuaHang: await caiDatService.tenCuaHang() };
 
   return (
     <main className="flex flex-1 items-center justify-center bg-gray-100 p-4">

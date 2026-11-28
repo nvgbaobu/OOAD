@@ -36,6 +36,16 @@ export class BanSaoLuu implements BanSaoLuuModel {
     return new BanSaoLuu(await banSaoLuuRepository.tao({ maTK, thoiGian: luc, duongDanFile: duongDan, kichThuoc }));
   }
 
+  /**
+   * Ghi lại thông tin bản sao lưu nếu CSDL chưa có (so theo đường dẫn file) – dùng sau khi phục hồi,
+   * vì CSDL vừa phục hồi không có các dòng BanSaoLuu được tạo sau thời điểm của file .bak.
+   */
+  static async ghiLaiNeuThieu(d: Omit<BanSaoLuuModel, "maBackup" | "kichThuoc"> & { kichThuoc: bigint | number }): Promise<void> {
+    if (await banSaoLuuRepository.timTheoDuongDan(d.duongDanFile)) return;
+    // Chỉ lấy đúng các cột cần ghi – không truyền maBackup (cột IDENTITY, CSDL tự sinh)
+    await banSaoLuuRepository.tao({ maTK: d.maTK, thoiGian: d.thoiGian, duongDanFile: d.duongDanFile, kichThuoc: d.kichThuoc });
+  }
+
   /** Bản sao lưu theo mã. */
   static async timTheoMa(maBackup: number): Promise<BanSaoLuu | null> {
     const d = await banSaoLuuRepository.timTheoMa(maBackup);

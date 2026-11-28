@@ -3,7 +3,9 @@
 // - Ngày của hóa đơn = thoiGianTao (thời điểm thanh toán), theo giờ máy chủ (= giờ cửa hàng). Gom nhóm làm ở Node
 //   (SQL Server lưu UTC) – lượng hóa đơn của 1 cửa hàng nhỏ, đọc cả khoảng ngày là đủ nhanh.
 // - Theo thể loại / theo sách dùng thành tiền từng dòng (giá bán lẻ × SL, TRƯỚC giảm giá cấp hóa đơn).
-import { prisma } from "@/lib/prisma";
+import { baoCaoRepository } from "@/lib/repositories/baoCaoRepository";
+import { phieuKhoRepository } from "@/lib/repositories/phieuKhoRepository";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 import { docNgayInput, ngayInput } from "@/lib/dinhDang";
 
 export type KhoangNgay = { tu: Date; den: Date }; // den: loại trừ (0 giờ ngày sau ngày cuối)
@@ -55,22 +57,15 @@ const themVao = <K>(m: Map<K, Nhom & Record<string, unknown>>, k: K, tao: () => 
 };
 
 export const baoCaoService = {
+  /** Ghi nhật ký khi xuất báo cáo (BAO_CAO/XUAT_EXCEL, XUAT_PDF). */
+  ghiNhatKyXuat: (maTK: number, hanhDong: "XUAT_EXCEL" | "XUAT_PDF", k: { tuNgay: string; denNgay: string }) =>
+    NhatKyHeThong.ghiNhatKy({ maTK, module: "BAO_CAO", hanhDong, noiDung: `Doanh thu ${k.tuNgay} → ${k.denNgay}` }),
+
   /** Báo cáo đầy đủ cho khoảng ngày [tu, den). */
   async baoCao({ tu, den }: KhoangNgay, soSachTop = 10) {
     const [hoaDons, huy] = await Promise.all([
-      prisma.hoaDon.findMany({
-        where: { trangThai: "DA_THANH_TOAN", thoiGianTao: { gte: tu, lt: den } },
-        select: {
-          maHD: true, thoiGianTao: true, maKH: true, phuongThucTT: true, tamTinh: true, giamCombo: true, giamHangThe: true,
-          giamMaGiamGia: true, giamDiem: true, thueVAT: true, tongTien: true,
-          taiKhoan: { select: { maTK: true, hoTen: true } },
-          chiTiets: { select: { soLuong: true, thanhTien: true, sach: { select: { maSach: true, tenSach: true, theLoai: { select: { tenTL: true } } } } } },
-        },
-        orderBy: { thoiGianTao: "asc" },
-      }),
-      prisma.hoaDon.aggregate({
-        where: { trangThai: "DA_HUY", phuongThucTT: { not: null }, thoiGianTao: { gte: tu, lt: den } }, _count: true, _sum: { tongTien: true },
-      }),
+      baoCaoRepository.hoaDonDaThanhToan(tu, den),
+      baoCaoRepository.hoaDonDaHuy(tu, den),
     ]);
 
     const tong = { soHoaDon: 0, doanhThu: 0, tamTinh: 0, giamCombo: 0, giamHangThe: 0, giamMaGiamGia: 0, giamDiem: 0, thueVAT: 0, soCuon: 0 };
@@ -130,23 +125,15 @@ export const baoCaoService = {
       this.baoCao(khoangNgay("thangNay", luc)),
       this.baoCao(khoangNgay("7Ngay", luc)),
       this.baoCao(khoangNgay("30Ngay", luc), 5),
-      Promise.all([
-        prisma.phieuNhap.count({ where: { trangThai: "CHO_DUYET" } }),
-        prisma.phieuKiemKe.count({ where: { trangThai: "CHO_DUYET" } }),
-        prisma.phieuXuatHuy.count({ where: { trangThai: "CHO_DUYET" } }),
-      ]),
-      prisma.sach.count({ where: { trangThai: "DANG_BAN", soLuongTon: { lte: prisma.sach.fields.dinhMucToiThieu } } }),
-      prisma.hoaDon.count({ where: { trangThai: "DANG_LAP" } }),
-      prisma.hoaDon.findMany({
-        where: { trangThai: { in: ["DA_THANH_TOAN", "DA_HUY"] }, phuongThucTT: { not: null } },
-        select: { maHD: true, thoiGianTao: true, tongTien: true, trangThai: true, taiKhoan: { select: { hoTen: true } }, khachHang: { select: { hoTen: true } } },
-        orderBy: { thoiGianTao: "desc" }, take: 6,
-      }),
+      phieuKhoRepository.demChoDuyet(),
+      baoCaoRepository.demSachSapHet(),
+      baoCaoRepository.demDonDangLap(),
+      baoCaoRepository.hoaDonGanDay(6),
     ]);
     return {
       homNay: homNay.tong, homQua: homQua.tong, thangNay: thangNay.tong,
       bayNgay: bayNgay.theoNgay, topSach: baMuoiNgay.topSach, theoTheLoai30: baMuoiNgay.theoTheLoai,
-      canXuLy: { phieuNhap: choDuyet[0], kiemKe: choDuyet[1], xuatHuy: choDuyet[2], sapHet, donDangLap },
+      canXuLy: { phieuNhap: choDuyet.phieuNhap, kiemKe: choDuyet.kiemKe, xuatHuy: choDuyet.xuatHuy, sapHet, donDangLap },
       hoaDonGanDay,
     };
   },

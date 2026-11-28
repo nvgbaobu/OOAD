@@ -22,8 +22,6 @@ export const khachHangRepository = {
   hangTheoDiem: (db: Db, diemTichLuy: number) =>
     db.hangThanhVien.findFirst({ where: { diemToiThieu: { lte: diemTichLuy } }, orderBy: { diemToiThieu: "desc" } }),
   danhSachHang: (db: Db) => db.hangThanhVien.findMany({ orderBy: { diemToiThieu: "asc" } }),
-  capNhatMocHang: (db: Db, maHang: number, diemToiThieu: number, phanTramUuDai: number) =>
-    db.hangThanhVien.update({ where: { maHang }, data: { diemToiThieu, phanTramUuDai } }),
 
   /** Cộng điểm sau thanh toán: tăng cả điểm hiện tại (để đổi) và điểm tích lũy (để xét hạng). */
   congDiem: (db: Db, maKH: number, diem: number) =>
@@ -34,6 +32,22 @@ export const khachHangRepository = {
     return n === 1;
   },
   capNhatHang: (db: Db, maKH: number, maHang: number) => db.khachHang.update({ where: { maKH }, data: { maHang } }),
+  timTheoMa: (db: Db, maKH: number) => db.khachHang.findUnique({ where: { maKH } }),
+  timTheoMaKemHang: (maKH: number) => prisma.khachHang.findUnique({ where: { maKH }, include: { hangThanhVien: true } }),
+  capNhat: (db: Db, maKH: number, data: Prisma.KhachHangUncheckedUpdateInput) => db.khachHang.update({ where: { maKH }, data }),
+  xoa: (db: Db, maKH: number) => db.khachHang.delete({ where: { maKH } }),
+  demHoaDon: (maKH: number) => prisma.hoaDon.count({ where: { maKH } }),
+  /** Hạng kế tiếp (mốc điểm nhỏ nhất lớn hơn điểm tích lũy). */
+  hangKeTiep: (diemTichLuy: number) =>
+    prisma.hangThanhVien.findFirst({ where: { diemToiThieu: { gt: diemTichLuy } }, orderBy: { diemToiThieu: "asc" } }),
+
+  // ───────── Hạng thành viên ─────────
+  danhSachHangKemSoKhach: () =>
+    prisma.hangThanhVien.findMany({ include: { _count: { select: { khachHangs: true } } }, orderBy: { diemToiThieu: "asc" } }),
+  timHang: (db: Db, maHang: number) => db.hangThanhVien.findUnique({ where: { maHang } }),
+  taoHang: (db: Db, data: Prisma.HangThanhVienCreateInput) => db.hangThanhVien.create({ data }),
+  suaHang: (db: Db, maHang: number, data: Prisma.HangThanhVienUpdateInput) => db.hangThanhVien.update({ where: { maHang }, data }),
+  xoaHang: (db: Db, maHang: number) => db.hangThanhVien.delete({ where: { maHang } }),
 
   danhSach: (loc: LocKhachHang, boQua: number, lay: number) =>
     prisma.khachHang.findMany({

@@ -18,5 +18,7 @@ export const taiKhoanRepository = {
   capNhat: (maTK: number, data: Prisma.TaiKhoanUncheckedUpdateInput) => prisma.taiKhoan.update({ where: { maTK }, data }),
   /** Dùng được trong transaction (đặt lại mật khẩu bằng OTP). */
   capNhatMatKhau: (db: Db, maTK: number, matKhauHash: string) => db.taiKhoan.update({ where: { maTK }, data: { matKhauHash } }),
-  demAdminHoatDong:() => prisma.taiKhoan.count({ where: { vaiTro: "ADMIN", trangThai: "HOAT_DONG" } }),
+  /** Danh sách tên nhân viên (bộ lọc hóa đơn). */
+  danhSachTen: () => prisma.taiKhoan.findMany({ select: { maTK: true, hoTen: true }, orderBy: { hoTen: "asc" } }),
+  demAdminHoatDong: () => prisma.taiKhoan.count({ where: { vaiTro: "ADMIN", trangThai: "HOAT_DONG" } }),
 };

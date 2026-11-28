@@ -6,7 +6,7 @@ import { TEN_PHUONG_THUC, type PhuongThucTT } from "@/lib/services/posService";
 import { hoaDonService } from "@/lib/services/hoaDonService";
 import { huyHoaDon } from "@/app/actions/hoaDon";
 import FormHanhDong from "@/app/components/FormHanhDong";
-import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
+import { caiDatService } from "@/lib/services/caiDatService";
 import { tienVND, ngayGio } from "@/lib/dinhDang";
 import NutIn from "./NutIn";
 
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Hóa đơn" };
 export default async function TrangHoaDon({ params }: PageProps<"/hoa-don/[maHD]">) {
   const nd = await yeuCauDangNhap("ADMIN", "STAFF");
   const maHD = Number.parseInt((await params).maHD, 10);
-  const [hd, ch] = await Promise.all([Number.isInteger(maHD) ? hoaDonService.xem(maHD, nd) : null, cauHinhRepository.lay()]);
+  const [hd, ch] = await Promise.all([Number.isInteger(maHD) ? hoaDonService.xem(maHD, nd) : null, caiDatService.layCauHinh()]);
   if (!hd) notFound();
 
   const tienThua = hd.tienThoiLai;

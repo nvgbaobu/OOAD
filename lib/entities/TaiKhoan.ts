@@ -27,9 +27,19 @@ export class TaiKhoan implements TaiKhoanModel {
     return bcrypt.compare(mk, this.matKhauHash);
   }
 
+  /** Mã hóa mật khẩu (bcrypt, 10 vòng). */
+  static maHoaMatKhau(mk: string): Promise<string> {
+    return bcrypt.hash(mk, 10);
+  }
+
+  /** Tài khoản mới (chưa lưu), đang hoạt động. */
+  static async moi(d: Pick<TaiKhoanModel, "soDienThoai" | "hoTen" | "email" | "vaiTro">, matKhau: string): Promise<TaiKhoan> {
+    return new TaiKhoan({ maTK: 0, ...d, matKhauHash: await TaiKhoan.maHoaMatKhau(matKhau), trangThai: "HOAT_DONG", ngayTao: new Date() });
+  }
+
   /** Đổi mật khẩu mới (mã hóa bcrypt trước khi lưu). */
   async doiMatKhau(moi: string, db: Db = prisma): Promise<void> {
-    this.matKhauHash = await bcrypt.hash(moi, 10);
+    this.matKhauHash = await TaiKhoan.maHoaMatKhau(moi);
     await taiKhoanRepository.capNhatMatKhau(db, this.maTK, this.matKhauHash);
   }
 
@@ -57,9 +67,25 @@ export class TaiKhoan implements TaiKhoanModel {
     return d && new TaiKhoan(d);
   }
 
-  /** Lưu thông tin tài khoản (họ tên, email, vai trò, trạng thái) vào CSDL. */
+  /** Lưu tài khoản: thêm mới nếu maTK = 0, ngược lại cập nhật họ tên, email, vai trò, trạng thái (SĐT không đổi). */
   async luu(): Promise<boolean> {
-    await taiKhoanRepository.capNhat(this.maTK, { hoTen: this.hoTen, email: this.email, vaiTro: this.vaiTro, trangThai: this.trangThai });
+    const { hoTen, email, vaiTro, trangThai } = this;
+    if (this.maTK) await taiKhoanRepository.capNhat(this.maTK, { hoTen, email, vaiTro, trangThai });
+    else {
+      const d = await taiKhoanRepository.tao({ soDienThoai: this.soDienThoai, hoTen, email, vaiTro, trangThai, matKhauHash: this.matKhauHash });
+      Object.assign(this, { maTK: d.maTK, ngayTao: d.ngayTao });
+    }
     return true;
+  }
+
+  /** Thông tin công khai (không có mật khẩu đã mã hóa) – để trả ra ngoài service. */
+  thongTinCongKhai(): Omit<TaiKhoanModel, "matKhauHash"> {
+    const { maTK, soDienThoai, hoTen, email, vaiTro, trangThai, ngayTao } = this;
+    return { maTK, soDienThoai, hoTen, email, vaiTro, trangThai, ngayTao };
+  }
+
+  /** Số Admin đang hoạt động (luôn phải còn ít nhất 1). */
+  static soAdminHoatDong(): Promise<number> {
+    return taiKhoanRepository.demAdminHoatDong();
   }
 }
