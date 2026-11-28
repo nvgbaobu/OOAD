@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import type { Db } from "@/lib/db";
 
 const congKhai = { maTK: true, soDienThoai: true, hoTen: true, email: true, vaiTro: true, trangThai: true, ngayTao: true } as const;
 
@@ -15,5 +16,7 @@ export const taiKhoanRepository = {
   layCongKhai: (maTK: number) => prisma.taiKhoan.findUnique({ where: { maTK }, select: congKhai }),
   tao: (data: Prisma.TaiKhoanUncheckedCreateInput) => prisma.taiKhoan.create({ data, select: congKhai }),
   capNhat: (maTK: number, data: Prisma.TaiKhoanUncheckedUpdateInput) => prisma.taiKhoan.update({ where: { maTK }, data }),
-  demAdminHoatDong: () => prisma.taiKhoan.count({ where: { vaiTro: "ADMIN", trangThai: "HOAT_DONG" } }),
+  /** Dùng được trong transaction (đặt lại mật khẩu bằng OTP). */
+  capNhatMatKhau: (db: Db, maTK: number, matKhauHash: string) => db.taiKhoan.update({ where: { maTK }, data: { matKhauHash } }),
+  demAdminHoatDong:() => prisma.taiKhoan.count({ where: { vaiTro: "ADMIN", trangThai: "HOAT_DONG" } }),
 };

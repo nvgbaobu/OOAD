@@ -8,6 +8,7 @@ import { sachRepository, type LocSach } from "@/lib/repositories/sachRepository"
 import { theLoaiRepository } from "@/lib/repositories/theLoaiRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { huyDonQuaHan } from "@/lib/services/posService";
+import { Sach } from "@/lib/thucThe/Sach";
 
 export const SO_SACH_MOI_TRANG = 15;
 export const TRANG_THAI_SACH = { DANG_BAN: "Đang bán", NGUNG_KINH_DOANH: "Ngừng kinh doanh" } as const;
@@ -96,22 +97,18 @@ export const sachService = {
   },
 
   async doiTrangThai(maSach: number, trangThai: keyof typeof TRANG_THAI_SACH, maTK: number) {
-    const cu = await sachRepository.timTheoMa(prisma, maSach);
+    const cu = await Sach.timTheoMa(maSach);
     if (!cu) throw new LoiNghiepVu("Sách không tồn tại");
     if (cu.trangThai === trangThai) return;
-    if (trangThai === "NGUNG_KINH_DOANH") {
-      // UC2.4 luồng 3a: sách còn nằm trong đơn POS chưa thanh toán → cảnh báo, không ngừng kinh doanh.
-      // Đơn nháp quá hạn (đã bị bỏ dở) được dọn trước để không chặn oan.
-      await huyDonQuaHan();
-      if (!(await sachRepository.ngungKinhDoanhNeuKhongTamGiu(maSach))) {
-        const soDon = await sachRepository.soDonDangLapChua(maSach);
-        throw new LoiNghiepVu(
-          `Sách đang nằm trong ${soDon || "một số"} đơn hàng chưa thanh toán tại POS. ` +
-          "Hãy hoàn tất hoặc hủy các đơn đó trước khi ngừng kinh doanh.",
-        );
-      }
-    } else {
-      await sachRepository.capNhat(maSach, { trangThai });
+    // UC2.4 luồng 3a: sách còn nằm trong đơn POS chưa thanh toán → cảnh báo, không ngừng kinh doanh.
+    // Đơn nháp quá hạn (đã bị bỏ dở) được dọn trước để không chặn oan.
+    if (trangThai === "NGUNG_KINH_DOANH") await huyDonQuaHan();
+    if (!(await cu.capNhatTrangThai(trangThai))) {
+      const soDon = await sachRepository.soDonDangLapChua(maSach);
+      throw new LoiNghiepVu(
+        `Sách đang nằm trong ${soDon || "một số"} đơn hàng chưa thanh toán tại POS. ` +
+        "Hãy hoàn tất hoặc hủy các đơn đó trước khi ngừng kinh doanh.",
+      );
     }
     await nhatKyRepository.ghi({
       maTK, module: "SACH", hanhDong: trangThai === "DANG_BAN" ? "MO_BAN_LAI" : "NGUNG_KINH_DOANH",

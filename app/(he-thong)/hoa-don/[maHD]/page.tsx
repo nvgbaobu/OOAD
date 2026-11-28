@@ -18,7 +18,7 @@ export default async function TrangHoaDon({ params }: PageProps<"/hoa-don/[maHD]
   const [hd, ch] = await Promise.all([Number.isInteger(maHD) ? hoaDonService.xem(maHD, nd) : null, cauHinhRepository.lay()]);
   if (!hd) notFound();
 
-  const tienThua = hd.tienKhachDua ? Number(hd.tienKhachDua) - Number(hd.tongTien) : 0;
+  const tienThua = hd.tienThoiLai;
   const daHuy = hd.trangThai === "DA_HUY";
   const coTheHuy = nd.vaiTro === "ADMIN" && hd.trangThai === "DA_THANH_TOAN";
 
