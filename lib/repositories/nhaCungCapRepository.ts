@@ -21,6 +21,13 @@ export const nhaCungCapRepository = {
   timTheoMaSoThue: (maSoThue: string) => prisma.nhaCungCap.findUnique({ where: { maSoThue } }),
   tao: (data: Prisma.NhaCungCapUncheckedCreateInput) => prisma.nhaCungCap.create({ data }),
   capNhat: (maNCC: number, data: Prisma.NhaCungCapUncheckedUpdateInput) => prisma.nhaCungCap.update({ where: { maNCC }, data }),
+  xoa: (maNCC: number) => prisma.nhaCungCap.delete({ where: { maNCC } }),
+  demPhieuNhap: (maNCC: number) => prisma.phieuNhap.count({ where: { maNCC } }),
+  phieuNhapGanDay: (maNCC: number, lay = 20) =>
+    prisma.phieuNhap.findMany({
+      where: { maNCC }, orderBy: { maPN: "desc" }, take: lay,
+      select: { maPN: true, ngayLap: true, trangThai: true, tongTien: true, nguoiLap: { select: { hoTen: true } } },
+    }),
   /** Tổng hợp phiếu nhập đã duyệt của NCC. */
   async thongKeNhap(maNCC: number) {
     const r = await prisma.phieuNhap.aggregate({ where: { maNCC, trangThai: "DA_DUYET" }, _count: true, _sum: { tongTien: true } });

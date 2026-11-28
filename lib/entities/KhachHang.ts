@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { Db } from "@/lib/db";
 import type { KhachHang as KhachHangModel } from "@/lib/generated/prisma/client";
 import { khachHangRepository, type LocKhachHang } from "@/lib/repositories/khachHangRepository";
-import type { HangThanhVien } from "@/lib/thucThe/HangThanhVien";
+import type { HangThanhVien } from "@/lib/entities/HangThanhVien";
 
 export class KhachHang implements KhachHangModel {
   // ───── Thuộc tính ─────
@@ -55,6 +55,40 @@ export class KhachHang implements KhachHangModel {
   async capNhatHang(hang: HangThanhVien, db: Db = prisma): Promise<void> {
     await khachHangRepository.capNhatHang(db, this.maKH, hang.maHang);
     this.maHang = hang.maHang;
+  }
+
+  /** Cập nhật thông tin liên hệ (SĐT, họ tên, email, địa chỉ) – điểm không sửa tay. */
+  async capNhatThongTin(d: Pick<KhachHangModel, "soDienThoai" | "hoTen" | "email" | "diaChi">, db: Db = prisma): Promise<void> {
+    Object.assign(this, await khachHangRepository.capNhat(db, this.maKH, d));
+  }
+
+  /** Số hóa đơn của khách (kể cả đơn nháp) – khách đã có hóa đơn thì không xóa được. */
+  soHoaDon(): Promise<number> {
+    return khachHangRepository.demHoaDon(this.maKH);
+  }
+
+  /** Xóa khách hàng khỏi CSDL. */
+  async xoa(db: Db = prisma): Promise<void> {
+    await khachHangRepository.xoa(db, this.maKH);
+  }
+
+  /** Tìm khách theo mã. */
+  static async timTheoMa(maKH: number, db: Db = prisma): Promise<KhachHang | null> {
+    const d = await khachHangRepository.timTheoMa(db, maKH);
+    return d && new KhachHang(d);
+  }
+
+  /** Khách mới (chưa lưu): 0 điểm, hạng của khách mới. */
+  static moi(d: Pick<KhachHangModel, "soDienThoai" | "hoTen" | "email" | "diaChi">, hang: HangThanhVien): KhachHang {
+    return new KhachHang({ maKH: 0, ...d, diemHienTai: 0, diemTichLuy: 0, maHang: hang.maHang, ngayTao: new Date() });
+  }
+
+  /**
+   * Xét lại hạng toàn bộ khách theo điểm tích lũy (sau khi thêm/sửa/xóa hạng; có thể hạ hạng).
+   * boQuaHang: hạng sắp xóa – không xếp khách vào. Trả về số khách đổi hạng.
+   */
+  static xetLaiHangToanBo(db: Db = prisma, boQuaHang = 0): Promise<number> {
+    return khachHangRepository.xetLaiHang(db, boQuaHang);
   }
 
   /** Tra cứu khách theo số điện thoại. */

@@ -8,5 +8,7 @@ export const cauHinhRepository = {
     if (!ch) throw new Error("Chưa có cấu hình hệ thống (CauHinhHeThong). Hãy chạy seed.");
     return ch;
   },
+  /** Tên cửa hàng (trang đăng nhập) – null nếu chưa có cấu hình (chưa seed). */
+  tenCuaHang: async () => (await prisma.cauHinhHeThong.findUnique({ where: { maCH: 1 }, select: { tenCuaHang: true } }))?.tenCuaHang ?? null,
   capNhat: (db: Db, data: Prisma.CauHinhHeThongUpdateInput) => db.cauHinhHeThong.update({ where: { maCH: 1 }, data }),
 };

@@ -67,6 +67,34 @@ export const hoaDonRepository = {
     return r.count === 1;
   },
 
+  /** Cập nhật thông tin đơn đang lập (khách, mã, điểm) – luôn kèm thời điểm cập nhật. */
+  capNhatDon: (db: Db, maHD: number, data: Pick<Prisma.HoaDonUncheckedUpdateInput, "maKH" | "maMGG" | "diemSuDung"> = {}) =>
+    db.hoaDon.update({ where: { maHD }, data: { ...data, thoiGianCapNhat: new Date() } }),
+  /** Hóa đơn kèm chi tiết (tên sách), khách (hạng), mã – để hủy hóa đơn đã thanh toán. */
+  layDeHuy: (db: Db, maHD: number) =>
+    db.hoaDon.findUnique({
+      where: { maHD },
+      include: { chiTiets: { include: { sach: { select: { tenSach: true } } } }, khachHang: { include: { hangThanhVien: true } }, maGiamGia: true },
+    }),
+  /** Đơn nháp của nhân viên bị hủy với lý do `lyDo` từ mốc `tu` (để báo trên POS). */
+  donHuyGanDay: (db: Db, maTK: number, lyDo: string, tu: Date) =>
+    db.hoaDon.findFirst({
+      where: { maTK, trangThai: "DA_HUY", lyDoHuy: lyDo, thoiGianCapNhat: { gte: tu } },
+      orderBy: { maHD: "desc" }, select: { maHD: true, thoiGianCapNhat: true },
+    }),
+  /** Số dòng sách trong đơn đang lập của nhân viên. */
+  async soSachDonDangLap(maTK: number) {
+    const don = await prisma.hoaDon.findFirst({ where: { maTK, trangThai: "DANG_LAP" }, select: { _count: { select: { chiTiets: true } } } });
+    return don?._count.chiTiets ?? 0;
+  },
+  /** Lịch sử mua của khách: hóa đơn đã thanh toán (kể cả đã hủy sau đó), mới nhất trước. */
+  lichSuCuaKhach: (maKH: number, lay = 50) =>
+    prisma.hoaDon.findMany({
+      where: { maKH, phuongThucTT: { not: null } },
+      select: { maHD: true, maTK: true, thoiGianTao: true, thoiGianCapNhat: true, trangThai: true, tongTien: true, diemSuDung: true, lyDoHuy: true },
+      orderBy: { maHD: "desc" }, take: lay,
+    }),
+
   /** Đơn đang lập không được cập nhật từ mốc thời gian trở về sau (để tự hủy). */
   donQuaHan: (db: Db, moc: Date) =>
     db.hoaDon.findMany({ where: { trangThai: "DANG_LAP", thoiGianCapNhat: { lt: moc } }, select: { maHD: true, maTK: true } }),

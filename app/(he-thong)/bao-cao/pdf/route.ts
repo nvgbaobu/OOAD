@@ -1,9 +1,8 @@
 // GET /bao-cao/pdf?tuNgay=YYYY-MM-DD&denNgay=YYYY-MM-DD → tải file báo cáo doanh thu .pdf (chỉ Admin) – UC9.3.
 import type { NextRequest } from "next/server";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
-import { docKhoangNgay } from "@/lib/services/baoCaoService";
+import { baoCaoService, docKhoangNgay } from "@/lib/services/baoCaoService";
 import { taoFilePdfBaoCao } from "@/lib/services/xuatPdfBaoCao";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 
 export async function GET(request: NextRequest) {
   const nd = await yeuCauDangNhap("ADMIN");
@@ -11,7 +10,7 @@ export async function GET(request: NextRequest) {
   const k = docKhoangNgay(sp.get("tuNgay") ?? undefined, sp.get("denNgay") ?? undefined);
   if (k.loi) return new Response(k.loi, { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   const file = await taoFilePdfBaoCao(k, nd.hoTen);
-  await nhatKyRepository.ghi({ maTK: nd.maTK, module: "BAO_CAO", hanhDong: "XUAT_PDF", noiDung: `Doanh thu ${k.tuNgay} → ${k.denNgay}` });
+  await baoCaoService.ghiNhatKyXuat(nd.maTK, "XUAT_PDF", k);
   return new Response(new Uint8Array(file), {
     headers: {
       "Content-Type": "application/pdf",

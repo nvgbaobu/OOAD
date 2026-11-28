@@ -1,9 +1,8 @@
 // GET /bao-cao/excel?tuNgay=YYYY-MM-DD&denNgay=YYYY-MM-DD → tải file báo cáo doanh thu .xlsx (chỉ Admin).
 import type { NextRequest } from "next/server";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
-import { docKhoangNgay } from "@/lib/services/baoCaoService";
+import { baoCaoService, docKhoangNgay } from "@/lib/services/baoCaoService";
 import { taoFileExcelBaoCao } from "@/lib/services/xuatExcelBaoCao";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 
 export async function GET(request: NextRequest) {
   const nd = await yeuCauDangNhap("ADMIN");
@@ -11,7 +10,7 @@ export async function GET(request: NextRequest) {
   const k = docKhoangNgay(sp.get("tuNgay") ?? undefined, sp.get("denNgay") ?? undefined);
   if (k.loi) return new Response(k.loi, { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   const file = await taoFileExcelBaoCao(k, nd.hoTen);
-  await nhatKyRepository.ghi({ maTK: nd.maTK, module: "BAO_CAO", hanhDong: "XUAT_EXCEL", noiDung: `Doanh thu ${k.tuNgay} → ${k.denNgay}` });
+  await baoCaoService.ghiNhatKyXuat(nd.maTK, "XUAT_EXCEL", k);
   const tenFile = `bao-cao-doanh-thu_${k.tuNgay}_${k.denNgay}.xlsx`;
   return new Response(new Uint8Array(file), {
     headers: {

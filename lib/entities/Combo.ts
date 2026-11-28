@@ -2,9 +2,9 @@
 import { Prisma } from "@/lib/generated/prisma/client";
 import type { Combo as ComboModel, ChiTietCombo as ChiTietComboModel } from "@/lib/generated/prisma/client";
 import { comboRepository } from "@/lib/repositories/comboRepository";
-import { KhuyenMai } from "@/lib/thucThe/KhuyenMai";
-import { ChiTietCombo } from "@/lib/thucThe/ChiTietCombo";
-import type { Sach } from "@/lib/thucThe/Sach";
+import { KhuyenMai } from "@/lib/entities/KhuyenMai";
+import { ChiTietCombo } from "@/lib/entities/ChiTietCombo";
+import type { Sach } from "@/lib/entities/Sach";
 
 export class Combo extends KhuyenMai implements ComboModel {
   // ───── Thuộc tính (ngayBatDau, ngayKetThuc, trangThai kế thừa từ KhuyenMai) ─────
@@ -34,6 +34,23 @@ export class Combo extends KhuyenMai implements ComboModel {
   /** Tổng giá bán lẻ của các sách trong combo – giá combo phải thấp hơn số này mới có ưu đãi. */
   tinhTongGiaLe(): number {
     return this.chiTiets.reduce((t, c) => t + c.tinhGiaLe(), 0);
+  }
+
+  /** Tìm combo theo mã (kèm sách). */
+  static async timTheoMa(maCombo: number): Promise<Combo | null> {
+    const d = await comboRepository.timTheoMa(maCombo);
+    return d && new Combo(d);
+  }
+
+  /** Ngừng / mở lại combo. */
+  async doiTrangThai(hoatDong: boolean): Promise<void> {
+    this.trangThai = hoatDong ? "HOAT_DONG" : "NGUNG_HOAT_DONG";
+    await comboRepository.capNhatTrangThai(this.maCombo, this.trangThai);
+  }
+
+  /** Xóa combo (hóa đơn chỉ lưu số tiền giảm combo, không tham chiếu combo). */
+  async xoa(): Promise<void> {
+    await comboRepository.xoa(this.maCombo);
   }
 
   /** Lưu combo (thêm mới nếu maCombo = 0, ngược lại thay toàn bộ dòng sách). Trả về false nếu combo cần sửa không còn. */

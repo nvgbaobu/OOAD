@@ -12,4 +12,7 @@ export const nhatKyRepository = {
   traCuu: (where: Prisma.NhatKyHeThongWhereInput, boQua: number, lay: number) =>
     prisma.nhatKyHeThong.findMany({ where, include: { taiKhoan: { select: { hoTen: true } } }, orderBy: { maLog: "desc" }, skip: boQua, take: lay }),
   dem: (where: Prisma.NhatKyHeThongWhereInput) => prisma.nhatKyHeThong.count({ where }),
+  /** Các module đã có nhật ký (bộ lọc). */
+  cacModule: async () =>
+    (await prisma.nhatKyHeThong.findMany({ distinct: ["module"], select: { module: true }, orderBy: { module: "asc" } })).map((x) => x.module),
 };

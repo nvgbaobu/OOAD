@@ -1,8 +1,8 @@
 // Nghiệp vụ đăng nhập (BUS)
 import bcrypt from "bcryptjs";
-import { TaiKhoan } from "@/lib/thucThe/TaiKhoan";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { TaiKhoan } from "@/lib/entities/TaiKhoan";
 import type { VaiTro } from "@/lib/auth/token";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 // Hash giả để so sánh khi SĐT không tồn tại → thời gian phản hồi như nhau (không lộ SĐT nào có tài khoản)
 const HASH_GIA = bcrypt.hashSync("khong-co-tai-khoan", 10);
@@ -18,21 +18,21 @@ export const authService = {
     const dungMatKhau = tk ? await tk.kiemTraMatKhau(matKhau) : await bcrypt.compare(matKhau, HASH_GIA);
 
     if (!tk || !dungMatKhau) {
-      await nhatKyRepository.ghi({
+      await NhatKyHeThong.ghiNhatKy({
         maTK: tk?.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP_THAT_BAI", noiDung: `SĐT: ${soDienThoai}`,
       });
       return { ok: false, loi: "Số điện thoại hoặc mật khẩu không chính xác" };
     }
     if (tk.trangThai !== "HOAT_DONG") {
-      await nhatKyRepository.ghi({ maTK: tk.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP_BI_KHOA" });
+      await NhatKyHeThong.ghiNhatKy({ maTK: tk.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP_BI_KHOA" });
       return { ok: false, loi: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên" };
     }
 
-    await nhatKyRepository.ghi({ maTK: tk.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP" });
+    await NhatKyHeThong.ghiNhatKy({ maTK: tk.maTK, module: "TAI_KHOAN", hanhDong: "DANG_NHAP" });
     return { ok: true, maTK: tk.maTK, vaiTro: tk.vaiTro as VaiTro };
   },
 
   async dangXuat(maTK: number) {
-    await nhatKyRepository.ghi({ maTK, module: "TAI_KHOAN", hanhDong: "DANG_XUAT" });
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "TAI_KHOAN", hanhDong: "DANG_XUAT" });
   },
 };

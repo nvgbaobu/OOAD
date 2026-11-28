@@ -1,6 +1,6 @@
 // Xuất báo cáo doanh thu ra file .xlsx (exceljs). Mỗi phần báo cáo 1 sheet + sheet danh sách hóa đơn.
 import ExcelJS from "exceljs";
-import { prisma } from "@/lib/prisma";
+import { baoCaoRepository } from "@/lib/repositories/baoCaoRepository";
 import { baoCaoService, type KhoangNgay } from "@/lib/services/baoCaoService";
 import { TEN_PHUONG_THUC, type PhuongThucTT } from "@/lib/services/posService";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
@@ -27,15 +27,7 @@ export async function taoFileExcelBaoCao(k: KhoangNgay, nguoiXuat: string) {
   const [bc, ch, hoaDons] = await Promise.all([
     baoCaoService.baoCao(k, 50),
     cauHinhRepository.lay(),
-    prisma.hoaDon.findMany({
-      where: { phuongThucTT: { not: null }, trangThai: { in: ["DA_THANH_TOAN", "DA_HUY"] }, thoiGianTao: { gte: k.tu, lt: k.den } },
-      select: {
-        maHD: true, thoiGianTao: true, trangThai: true, phuongThucTT: true, tamTinh: true, giamCombo: true, giamHangThe: true,
-        giamMaGiamGia: true, giamDiem: true, thueVAT: true, tongTien: true, lyDoHuy: true,
-        taiKhoan: { select: { hoTen: true } }, khachHang: { select: { hoTen: true, soDienThoai: true } },
-      },
-      orderBy: { thoiGianTao: "asc" },
-    }),
+    baoCaoRepository.hoaDonDeXuat(k.tu, k.den),
   ]);
   const t = bc.tong;
   const cuoi = new Date(k.den.getTime() - 1);

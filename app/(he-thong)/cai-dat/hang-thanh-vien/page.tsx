@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
 import { khachHangService } from "@/lib/services/khachHangService";
-import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
+import { caiDatService } from "@/lib/services/caiDatService";
 import { xoaHang } from "@/app/actions/khachHang";
 import FormHanhDong from "@/app/components/FormHanhDong";
 import { tienVND } from "@/lib/dinhDang";
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Hạng thành viên" };
 
 export default async function TrangHangThanhVien({ searchParams }: PageProps<"/cai-dat/hang-thanh-vien">) {
   await yeuCauDangNhap("ADMIN");
-  const [hangs, ch, sp] = await Promise.all([khachHangService.danhSachHang(), cauHinhRepository.lay(), searchParams]);
+  const [hangs, ch, sp] = await Promise.all([khachHangService.danhSachHang(), caiDatService.layCauHinh(), searchParams]);
   const soDoi = typeof sp.soDoi === "string" ? Number(sp.soDoi) : null;
 
   return (

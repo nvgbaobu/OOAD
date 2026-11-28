@@ -5,11 +5,11 @@
 Thành viên: Vũ Tiến Thịnh, Lê Hoàng An, Nguyễn Võ Gia Bảo, Quách Tuấn Hào, Nguyễn Trung Hiếu, Tạ Ngọc Khánh Huy.
 
 Bản demo hệ thống bán sách **tại quầy (POS)**, chạy nội bộ, 2 vai trò **Admin** và **Staff**. Kiến trúc 3 lớp khớp báo cáo:
-giao diện (`app/`) → điều khiển / nghiệp vụ (`app/actions/`, `lib/services/`) → **lớp thực thể** (`lib/thucThe/`, 23 lớp
+giao diện (`app/`) → điều khiển / nghiệp vụ (`app/actions/`, `lib/services/`) → **lớp thực thể** (`lib/entities/`, 23 lớp
 khớp sơ đồ lớp mục 3.1.5) → truy cập dữ liệu (`lib/repositories/`) → SQL Server (Prisma, 21 bảng).
 
 > Lược đồ 21 bảng: `prisma/schema.prisma` (mỗi bảng có chú thích). Quy tắc tính tiền: `lib/services/tinhTienHoaDon.ts`.
-> Thuộc tính + phương thức của từng lớp (theo Bảng 3.37–3.82): `lib/thucThe/<TenLop>.ts` – vd `Sach.ts` có `tamGiu()`, `truTon()`,
+> Thuộc tính + phương thức của từng lớp (theo Bảng 3.37–3.82): `lib/entities/<TenLop>.ts` – vd `Sach.ts` có `tamGiu()`, `truTon()`,
 > `soLuongKhaDung()`. Hai lớp trừu tượng: `KhuyenMai` (cha của `MaGiamGia`, `Combo`), `PhieuKho` (cha của 3 loại phiếu kho).
 
 ## Công nghệ
@@ -103,7 +103,7 @@ app/
   quen-mat-khau/         khôi phục mật khẩu bằng OTP
 lib/
   services/              nghiệp vụ (BUS) – kiểm tra dữ liệu, giao dịch, ghi nhật ký; điều phối các lớp thực thể
-  thucThe/               lớp thực thể (Entity) theo sơ đồ lớp – thuộc tính + phương thức, gọi repository
+  entities/              lớp thực thể (Entity) theo sơ đồ lớp – thuộc tính + phương thức, gọi repository
   repositories/          truy vấn Prisma (DAO)
   auth/                  phiên đăng nhập, phân quyền (proxy + DAL)
 prisma/                  schema.prisma (21 bảng), migrations, seed.ts, du-lieu/ (sách Fahasa)

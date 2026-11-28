@@ -19,4 +19,9 @@ export const banSaoLuuRepository = {
 
   tao: (data: Prisma.BanSaoLuuUncheckedCreateInput) => prisma.banSaoLuu.create({ data }),
   timTheoMa: (maBackup: number) => prisma.banSaoLuu.findUnique({ where: { maBackup } }),
+  timTheoDuongDan: (duongDanFile: string) => prisma.banSaoLuu.findFirst({ where: { duongDanFile } }),
+  danhSach: (lay = 50) =>
+    prisma.banSaoLuu.findMany({ include: { taiKhoan: { select: { hoTen: true } } }, orderBy: { maBackup: "desc" }, take: lay }),
+  /** Thử truy vấn đơn giản – dùng để đợi kết nối dùng lại được sau khi phục hồi CSDL. */
+  kiemTraKetNoi: () => prisma.$queryRaw`SELECT 1`,
 };

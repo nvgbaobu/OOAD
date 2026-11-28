@@ -15,6 +15,9 @@ export const comboRepository = {
   danhSach: () => prisma.combo.findMany({ include: kemSach, orderBy: [{ ngayKetThuc: "desc" }, { maCombo: "desc" }] }),
   timTheoMa: (maCombo: number) => prisma.combo.findUnique({ where: { maCombo }, include: kemSach }),
 
+  capNhatTrangThai: (maCombo: number, trangThai: string) => prisma.combo.update({ where: { maCombo }, data: { trangThai } }),
+  xoa: (maCombo: number) => prisma.combo.delete({ where: { maCombo } }), // ChiTietCombo xóa theo (CASCADE)
+
   /** Thêm combo (maCombo = null) hoặc sửa: thay toàn bộ dòng sách, trong 1 transaction. Trả về null nếu combo cần sửa không còn. */
   luu: (maCombo: number | null, data: Omit<Prisma.ComboCreateInput, "trangThai" | "chiTiets">, dong: { maSach: number; soLuong: number }[]) =>
     prisma.$transaction(async (tx) => {

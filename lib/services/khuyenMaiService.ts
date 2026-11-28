@@ -7,13 +7,14 @@
 // Combo:
 // - ≥ 1 đầu sách đang bán, tổng số cuốn ≥ 2, SL mỗi sách 1–20; giá combo > 0 và < tổng giá lẻ hiện tại.
 // - Hóa đơn không tham chiếu combo (chỉ lưu giamCombo) → combo xóa được; sửa combo chỉ ảnh hưởng đơn mới.
-import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { maGiamGiaRepository, type TinhTrangMa } from "@/lib/repositories/maGiamGiaRepository";
 import { comboRepository } from "@/lib/repositories/comboRepository";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { docNgayInput } from "@/lib/dinhDang";
-import { Combo } from "@/lib/thucThe/Combo";
+import { Combo } from "@/lib/entities/Combo";
+import { MaGiamGia } from "@/lib/entities/MaGiamGia";
+import { sachRepository } from "@/lib/repositories/sachRepository";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 export const TINH_TRANG_MA: Record<TinhTrangMa, string> = {
   DANG_AP_DUNG: "Đang áp dụng", CHUA_BAT_DAU: "Chưa bắt đầu", HET_HAN: "Hết hạn", HET_LUOT: "Hết lượt", NGUNG: "Ngừng hoạt động",
@@ -56,7 +57,7 @@ async function kiemTraMa(f: FormMa, cu: { maMGG: number; maCode: string; daSuDun
   if (khoaMaCode && cu && maCode !== cu.maCode) loi.maCode = "Mã đã được dùng – không đổi được";
   else if (!/^[A-Z0-9_-]{3,30}$/.test(maCode)) loi.maCode = "3–30 ký tự: chữ không dấu, số, _ hoặc -";
   else {
-    const trung = await maGiamGiaRepository.timTheoCode(prisma, maCode);
+    const trung = await MaGiamGia.timTheoMaCode(maCode);
     if (trung && trung.maMGG !== cu?.maMGG) loi.maCode = `Mã giảm giá đã tồn tại (${maCode})`;
   }
   if (!loaiGiam) loi.loaiGiam = "Chọn loại giảm";
@@ -81,7 +82,7 @@ async function kiemTraCombo(f: FormCombo) {
 
   const dong = f.dong.map((d) => ({ maSach: Number(d.maSach), soLuong: Number(d.soLuong) }));
   if (new Set(dong.map((d) => d.maSach)).size !== dong.length) throw new LoiNghiepVu("Mỗi sách chỉ 1 dòng trong combo");
-  const sachs = new Map((await prisma.sach.findMany({ where: { maSach: { in: dong.map((d) => d.maSach) } } })).map((s) => [s.maSach, s]));
+  const sachs = new Map((await sachRepository.timNhieu(dong.map((d) => d.maSach))).map((s) => [s.maSach, s]));
   for (const d of dong) {
     const s = sachs.get(d.maSach);
     const k = `dong.${d.maSach}`;
@@ -114,41 +115,43 @@ export const khuyenMaiService = {
 
   async taoMa(f: FormMa, maTK: number) {
     const d = await kiemTraMa(f, null, false);
-    const ma = await maGiamGiaRepository.tao({ ...d, daSuDung: 0, trangThai: "HOAT_DONG" });
-    await nhatKyRepository.ghi({ maTK, module: "MA_GIAM_GIA", hanhDong: "THEM", noiDung: moTaMa(d) });
+    const ma = MaGiamGia.moi(d);
+    await ma.luu();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "MA_GIAM_GIA", hanhDong: "THEM", noiDung: moTaMa(d) });
     return ma;
   },
 
   async capNhatMa(maMGG: number, f: FormMa, maTK: number) {
-    const cu = await maGiamGiaRepository.timTheoMa(maMGG);
-    if (!cu) throw new LoiNghiepVu("Mã giảm giá không tồn tại");
-    const d = await kiemTraMa(f, cu, cu.daSuDung > 0 || (await maGiamGiaRepository.demHoaDon(maMGG)) > 0);
-    await maGiamGiaRepository.capNhat(maMGG, d);
-    await nhatKyRepository.ghi({ maTK, module: "MA_GIAM_GIA", hanhDong: "SUA", noiDung: `${moTaMa(cu)} → ${moTaMa(d)}` });
+    const ma = await MaGiamGia.timTheoMa(maMGG);
+    if (!ma) throw new LoiNghiepVu("Mã giảm giá không tồn tại");
+    const moTaCu = moTaMa(ma);
+    const d = await kiemTraMa(f, ma, await ma.daDung());
+    Object.assign(ma, d);
+    await ma.luu();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "MA_GIAM_GIA", hanhDong: "SUA", noiDung: `${moTaCu} → ${moTaMa(d)}` });
   },
 
   async doiTrangThaiMa(maMGG: number, hoatDong: boolean, maTK: number) {
-    const ma = await maGiamGiaRepository.timTheoMa(maMGG);
+    const ma = await MaGiamGia.timTheoMa(maMGG);
     if (!ma) throw new LoiNghiepVu("Mã giảm giá không tồn tại");
-    await maGiamGiaRepository.capNhat(maMGG, { trangThai: hoatDong ? "HOAT_DONG" : "NGUNG_HOAT_DONG" });
-    await nhatKyRepository.ghi({ maTK, module: "MA_GIAM_GIA", hanhDong: hoatDong ? "MO_LAI" : "NGUNG", noiDung: ma.maCode });
+    await ma.doiTrangThai(hoatDong);
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "MA_GIAM_GIA", hanhDong: hoatDong ? "MO_LAI" : "NGUNG", noiDung: ma.maCode });
   },
 
   async xoaMa(maMGG: number, maTK: number) {
-    const ma = await maGiamGiaRepository.timTheoMa(maMGG);
+    const ma = await MaGiamGia.timTheoMa(maMGG);
     if (!ma) throw new LoiNghiepVu("Mã giảm giá không tồn tại");
     const n = await maGiamGiaRepository.demHoaDon(maMGG);
     if (n || ma.daSuDung) throw new LoiNghiepVu(`Không xóa được: mã đã được dùng (${ma.daSuDung} lượt, ${n} hóa đơn). Hãy chuyển "Ngừng hoạt động".`);
-    await maGiamGiaRepository.xoa(maMGG);
-    await nhatKyRepository.ghi({ maTK, module: "MA_GIAM_GIA", hanhDong: "XOA", noiDung: ma.maCode });
+    await ma.xoa();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "MA_GIAM_GIA", hanhDong: "XOA", noiDung: ma.maCode });
   },
 
   // ───────── Combo ─────────
   danhSachCombo: () => comboRepository.danhSach(),
   /** Sách đang bán để chọn vào combo (Decimal → number cho client component). */
   sachDeChon: async () =>
-    (await prisma.sach.findMany({ where: { trangThai: "DANG_BAN" }, select: { maSach: true, tenSach: true, giaBan: true }, orderBy: { tenSach: "asc" } }))
-      .map((s) => ({ ...s, giaBan: Number(s.giaBan) })),
+    (await sachRepository.dangBanDeChon()).map((s) => ({ ...s, giaBan: Number(s.giaBan) })),
   layCombo: (maCombo: number) => comboRepository.timTheoMa(maCombo),
 
   async luuCombo(maCombo: number | null, f: FormCombo, maTK: number) {
@@ -157,7 +160,7 @@ export const khuyenMaiService = {
       maCombo: maCombo ?? 0, giaCombo: d.giaCombo, ngayBatDau: d.ngayBatDau, ngayKetThuc: d.ngayKetThuc,
     });
     if (!(await combo.luu())) throw new LoiNghiepVu("Combo không tồn tại");
-    await nhatKyRepository.ghi({
+    await NhatKyHeThong.ghiNhatKy({
       maTK, module: "COMBO", hanhDong: maCombo === null ? "THEM" : "SUA",
       noiDung: `#${combo.maCombo} ${d.tenCombo}: ${vnd(d.giaCombo)} (giá lẻ ${vnd(d.giaLe)}), ${d.dong.length} sách`,
     });
@@ -165,17 +168,17 @@ export const khuyenMaiService = {
   },
 
   async doiTrangThaiCombo(maCombo: number, hoatDong: boolean, maTK: number) {
-    const c = await comboRepository.timTheoMa(maCombo);
+    const c = await Combo.timTheoMa(maCombo);
     if (!c) throw new LoiNghiepVu("Combo không tồn tại");
-    await prisma.combo.update({ where: { maCombo }, data: { trangThai: hoatDong ? "HOAT_DONG" : "NGUNG_HOAT_DONG" } });
-    await nhatKyRepository.ghi({ maTK, module: "COMBO", hanhDong: hoatDong ? "MO_LAI" : "NGUNG", noiDung: `#${maCombo} ${c.tenCombo}` });
+    await c.doiTrangThai(hoatDong);
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "COMBO", hanhDong: hoatDong ? "MO_LAI" : "NGUNG", noiDung: `#${maCombo} ${c.tenCombo}` });
   },
 
   async xoaCombo(maCombo: number, maTK: number) {
-    const c = await comboRepository.timTheoMa(maCombo);
+    const c = await Combo.timTheoMa(maCombo);
     if (!c) throw new LoiNghiepVu("Combo không tồn tại");
-    await prisma.combo.delete({ where: { maCombo } }); // ChiTietCombo xóa theo (CASCADE)
-    await nhatKyRepository.ghi({ maTK, module: "COMBO", hanhDong: "XOA", noiDung: `#${maCombo} ${c.tenCombo}` });
+    await c.xoa(); // ChiTietCombo xóa theo (CASCADE)
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "COMBO", hanhDong: "XOA", noiDung: `#${maCombo} ${c.tenCombo}` });
   },
 };
 
