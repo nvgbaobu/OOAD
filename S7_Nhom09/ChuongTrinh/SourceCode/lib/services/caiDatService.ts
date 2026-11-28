@@ -9,6 +9,9 @@ import { LoiNghiepVu } from "@/lib/loi";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { CauHinhHeThong } from "@/lib/thucThe/CauHinhHeThong";
+import { NhatKyHeThong } from "@/lib/thucThe/NhatKyHeThong";
+import { BanSaoLuu, THU_MUC_SAO_LUU } from "@/lib/thucThe/BanSaoLuu";
 
 export type FormCauHinh = Record<"tenCuaHang" | "diaChi" | "soDienThoai" | "maSoThue" | "logo" | "tyLeQuyDoiDiem" | "giaTriMotDiem", string>
   & { ttTienMat: boolean; ttQuetThe: boolean; ttMaQR: boolean };
@@ -16,7 +19,7 @@ export type FormCauHinh = Record<"tenCuaHang" | "diaChi" | "soDienThoai" | "maSo
 export type LocNhatKy = { module?: string; maTK?: number; tuKhoa?: string; tuNgay?: Date; denNgay?: Date };
 export const SO_NHAT_KY_MOI_TRANG = 50;
 /** Thư mục chứa file sao lưu bên trong container SQL Server (nằm trên volume mssql_data nên không mất khi tạo lại container). */
-export const THU_MUC_SAO_LUU = "/var/opt/mssql/data";
+export { THU_MUC_SAO_LUU };
 
 const chuanHoa = (s: string) => s.trim().replace(/\s+/g, " ");
 const soNguyen = (s: string) => (s.trim() === "" ? NaN : Number(s.replace(/[.,\s]/g, "")));
@@ -52,12 +55,12 @@ export const caiDatService = {
     if (!Number.isInteger(tyLeQuyDoiDiem) || tyLeQuyDoiDiem < 1000 || tyLeQuyDoiDiem > 1_000_000) loi.tyLeQuyDoiDiem = "Số nguyên từ 1.000 đến 1.000.000 đồng";
     if (!Number.isInteger(giaTriMotDiem) || giaTriMotDiem < 1) loi.giaTriMotDiem = "Số nguyên ≥ 1 đồng";
     else if (!loi.tyLeQuyDoiDiem && giaTriMotDiem >= tyLeQuyDoiDiem) loi.giaTriMotDiem = "Phải nhỏ hơn số tiền để được 1 điểm";
-    if (!f.ttTienMat && !f.ttQuetThe && !f.ttMaQR) loi.phuongThuc = "Bật ít nhất 1 phương thức thanh toán";
+    if (!CauHinhHeThong.conPhuongThucBat(f)) loi.phuongThuc = "Bật ít nhất 1 phương thức thanh toán";
     if (Object.keys(loi).length) throw new LoiNghiepVu("Dữ liệu chưa hợp lệ, kiểm tra các ô báo đỏ", loi);
 
     const cu = await cauHinhRepository.lay();
     const moi = { tenCuaHang, diaChi, soDienThoai, maSoThue, logo, tyLeQuyDoiDiem, giaTriMotDiem, ttTienMat: f.ttTienMat, ttQuetThe: f.ttQuetThe, ttMaQR: f.ttMaQR };
-    await prisma.cauHinhHeThong.update({ where: { maCH: 1 }, data: moi });
+    await new CauHinhHeThong(cu).capNhat(moi); // `cu` giữ giá trị cũ để ghi nhật ký cũ → mới
     const doi = (Object.keys(moi) as (keyof typeof moi)[])
       .filter((k) => String(cu[k] === null ? "" : typeof cu[k] === "object" ? Number(cu[k]) : cu[k]) !== String(moi[k] ?? ""))
       .map((k) => `${k}: ${cu[k] === null ? "–" : typeof cu[k] === "object" ? Number(cu[k]) : cu[k]} → ${moi[k] ?? "–"}`);
@@ -67,13 +70,11 @@ export const caiDatService = {
   // ───────── Nhật ký ─────────
   async nhatKy(loc: LocNhatKy, trang: number) {
     const where = dieuKienNhatKy(loc);
-    const tong = await prisma.nhatKyHeThong.count({ where });
+    const tong = await nhatKyRepository.dem(where);
     const soTrang = Math.max(1, Math.ceil(tong / SO_NHAT_KY_MOI_TRANG));
     const trangHienTai = Math.min(Math.max(1, trang), soTrang);
-    const dong = await prisma.nhatKyHeThong.findMany({
-      where, include: { taiKhoan: { select: { hoTen: true } } },
-      orderBy: { maLog: "desc" }, skip: (trangHienTai - 1) * SO_NHAT_KY_MOI_TRANG, take: SO_NHAT_KY_MOI_TRANG,
-    });
+    // Trả object thường (kèm tên người thao tác) cho giao diện; NhatKyHeThong.traCuu() là phiên bản trả về lớp thực thể
+    const dong = await nhatKyRepository.traCuu(where, (trangHienTai - 1) * SO_NHAT_KY_MOI_TRANG, SO_NHAT_KY_MOI_TRANG);
     return { dong, tong, soTrang, trang: trangHienTai };
   },
   cacModuleNhatKy: async () => (await prisma.nhatKyHeThong.findMany({ distinct: ["module"], select: { module: true }, orderBy: { module: "asc" } })).map((x) => x.module),
@@ -83,24 +84,13 @@ export const caiDatService = {
 
   /** hauTo: phần thêm vào tên file (chỉ chữ/số/_), vd "_truocPhucHoi" cho bản sao lưu an toàn khi phục hồi. */
   async saoLuu(maTK: number, hauTo = "") {
-    if (!/^\w*$/.test(hauTo)) throw new Error("Hậu tố tên file không hợp lệ");
-    const db = process.env.DB_NAME ?? "QuanLyBanSach";
-    if (!/^\w+$/.test(db)) throw new Error("DB_NAME không hợp lệ");
-    const luc = new Date();
-    const p = (n: number) => String(n).padStart(2, "0");
-    const tenFile = `${db}_${luc.getFullYear()}${p(luc.getMonth() + 1)}${p(luc.getDate())}_${p(luc.getHours())}${p(luc.getMinutes())}${p(luc.getSeconds())}${hauTo}.bak`;
-    const duongDan = `${THU_MUC_SAO_LUU}/${tenFile}`;
-    // Tên CSDL/đường dẫn tự sinh (chỉ chữ, số, _), không lấy từ người dùng → ghép chuỗi an toàn. BACKUP không chạy được trong transaction.
+    let bs: BanSaoLuu;
     try {
-      await prisma.$executeRawUnsafe(`BACKUP DATABASE [${db}] TO DISK = N'${duongDan}' WITH INIT, COPY_ONLY, NAME = N'${tenFile}'`);
+      bs = await BanSaoLuu.taoBanSaoLuu(maTK, hauTo);
     } catch (e) {
       throw new LoiNghiepVu(`Sao lưu thất bại: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
     }
-    const [kq] = await prisma.$queryRaw<{ kichThuoc: bigint | number }[]>`
-      SELECT TOP 1 CAST(backup_size AS BIGINT) AS kichThuoc FROM msdb.dbo.backupset
-      WHERE database_name = ${db} AND name = ${tenFile} ORDER BY backup_finish_date DESC`;
-    const bs = await prisma.banSaoLuu.create({ data: { maTK, thoiGian: luc, duongDanFile: duongDan, kichThuoc: BigInt(kq?.kichThuoc ?? 0) } });
-    await nhatKyRepository.ghi({ maTK, module: "CAI_DAT", hanhDong: "SAO_LUU", noiDung: `${duongDan} (${Number(bs.kichThuoc).toLocaleString("vi-VN")} byte)` });
+    await NhatKyHeThong.ghiNhatKy(maTK, "CAI_DAT", "SAO_LUU", `${bs.duongDanFile} (${Number(bs.kichThuoc).toLocaleString("vi-VN")} byte)`);
     return bs;
   },
 };

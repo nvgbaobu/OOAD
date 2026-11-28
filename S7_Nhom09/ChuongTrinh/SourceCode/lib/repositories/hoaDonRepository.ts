@@ -45,6 +45,31 @@ export const hoaDonRepository = {
 
   layChiTiet: (db: Db, maHD: number, maSach: number) =>
     db.chiTietHoaDon.findUnique({ where: { maHD_maSach: { maHD, maSach } } }),
+  taoChiTiet: (db: Db, data: Prisma.ChiTietHoaDonUncheckedCreateInput) => db.chiTietHoaDon.create({ data }),
+  capNhatChiTiet: (db: Db, maHD: number, maSach: number, data: { soLuong: number; thanhTien: number }) =>
+    db.chiTietHoaDon.update({ where: { maHD_maSach: { maHD, maSach } }, data }),
+  xoaChiTiet: (db: Db, maHD: number, maSach: number) => db.chiTietHoaDon.delete({ where: { maHD_maSach: { maHD, maSach } } }),
+  layDanhSachChiTiet: (db: Db, maHD: number) => db.chiTietHoaDon.findMany({ where: { maHD }, orderBy: { maSach: "asc" } }),
+  timTheoMa: (db: Db, maHD: number) => db.hoaDon.findUnique({ where: { maHD } }),
+
+  /**
+   * Chuyển trạng thái có điều kiện: chỉ đổi khi hóa đơn còn ở trạng thái `tu` (và, nếu có, chưa được cập nhật
+   * từ mốc `chiKhiCapNhatTruoc`). Hai request cùng lúc thì chỉ 1 request thành công. Trả về true nếu đổi được.
+   */
+  async chuyenTrangThai(
+    db: Db, maHD: number, tu: string, den: string,
+    data: Omit<Prisma.HoaDonUncheckedUpdateManyInput, "trangThai"> = {}, chiKhiCapNhatTruoc?: Date,
+  ) {
+    const r = await db.hoaDon.updateMany({
+      where: { maHD, trangThai: tu, ...(chiKhiCapNhatTruoc && { thoiGianCapNhat: { lt: chiKhiCapNhatTruoc } }) },
+      data: { thoiGianCapNhat: new Date(), ...data, trangThai: den },
+    });
+    return r.count === 1;
+  },
+
+  /** Đơn đang lập không được cập nhật từ mốc thời gian trở về sau (để tự hủy). */
+  donQuaHan: (db: Db, moc: Date) =>
+    db.hoaDon.findMany({ where: { trangThai: "DANG_LAP", thoiGianCapNhat: { lt: moc } }, select: { maHD: true, maTK: true } }),
 
   layHoaDonDayDu: (maHD: number) =>
     prisma.hoaDon.findUnique({
@@ -73,14 +98,5 @@ export const hoaDonRepository = {
       prisma.hoaDon.aggregate({ where: { AND: [where, { trangThai: "DA_THANH_TOAN" }] }, _sum: { tongTien: true }, _count: true }),
     ]);
     return { soHoaDon, soDaThanhToan: dt._count, doanhThu: Number(dt._sum.tongTien ?? 0) };
-  },
-
-  /** Hủy hóa đơn đã thanh toán – chỉ khi còn DA_THANH_TOAN. */
-  async huyDaThanhToan(db: Db, maHD: number, lyDoHuy: string) {
-    const r = await db.hoaDon.updateMany({
-      where: { maHD, trangThai: "DA_THANH_TOAN" },
-      data: { trangThai: "DA_HUY", lyDoHuy, thoiGianCapNhat: new Date() },
-    });
-    return r.count === 1;
   },
 };

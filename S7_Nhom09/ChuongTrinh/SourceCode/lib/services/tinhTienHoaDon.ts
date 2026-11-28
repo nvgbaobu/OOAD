@@ -95,6 +95,12 @@ function apCombo(dong: DongTinhTien[], combos: ComboTinhTien[]) {
   return { giamCombo: combosApDung.reduce((t, c) => t + c.giam, 0), combosApDung };
 }
 
+/** Số tiền giảm của mã: % trên số tiền áp mã (làm tròn đồng) hoặc số tiền cố định; không vượt số tiền áp mã. */
+export function tinhGiamMa(loaiGiam: "PHAN_TRAM" | "SO_TIEN", giaTriGiam: number, soTien: number) {
+  const giam = loaiGiam === "PHAN_TRAM" ? Math.round((soTien * giaTriGiam) / 100) : giaTriGiam;
+  return Math.min(giam, soTien);
+}
+
 export function tinhTienHoaDon(v: DauVaoTinhTien): KetQuaTinhTien {
   const tamTinh = v.dong.reduce((s, d) => s + d.thanhTien, 0);
 
@@ -113,8 +119,7 @@ export function tinhTienHoaDon(v: DauVaoTinhTien): KetQuaTinhTien {
     if (sauCombo < m.giaTriDonToiThieu) {
       throw new LoiTinhTien(`Đơn chưa đạt giá trị tối thiểu ${m.giaTriDonToiThieu.toLocaleString("vi-VN")}đ để dùng mã`);
     }
-    giamMa = m.loaiGiam === "PHAN_TRAM" ? Math.round((sauHang * m.giaTriGiam) / 100) : m.giaTriGiam;
-    giamMa = Math.min(giamMa, sauHang);
+    giamMa = tinhGiamMa(m.loaiGiam, m.giaTriGiam, sauHang);
   }
   const sauMa = sauHang - giamMa;
 
