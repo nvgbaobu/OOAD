@@ -5,10 +5,11 @@
 // giữ đúng lược đồ báo cáo), quá số lần thì mã bị vô hiệu, phải gửi lại mã mới.
 import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
-import { TaiKhoan } from "@/lib/thucThe/TaiKhoan";
-import { MaOTP } from "@/lib/thucThe/MaOTP";
+import { TaiKhoan } from "@/lib/entities/TaiKhoan";
+import { MaOTP } from "@/lib/entities/MaOTP";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { kiemTraMatKhau } from "@/lib/services/taiKhoanService";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 export const HAN_OTP_PHUT = 5;
 export const SO_LAN_SAI_TOI_DA = 5;
@@ -41,8 +42,8 @@ async function kiemTraOTP(maTK: number, maCodeTho: string) {
     throw new LoiNghiepVu("Mã OTP đã hết hạn", { maCode: "Mã OTP đã hết hạn", hetHan: "1" });
   }
   if (!otp.khop(maCode)) {
-    await nhatKyRepository.ghi({ maTK, module: MODULE, hanhDong: "OTP_SAI", noiDung: `OTP #${otp.maOTP}` });
-    const soLanSai = await prisma.nhatKyHeThong.count({ where: { maTK, module: MODULE, hanhDong: "OTP_SAI", noiDung: `OTP #${otp.maOTP}` } });
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: MODULE, hanhDong: "OTP_SAI", noiDung: `OTP #${otp.maOTP}` });
+    const soLanSai = await nhatKyRepository.dem({ maTK, module: MODULE, hanhDong: "OTP_SAI", noiDung: `OTP #${otp.maOTP}` });
     if (soLanSai >= SO_LAN_SAI_TOI_DA) {
       await otp.danhDauDaDung();
       throw new LoiNghiepVu(`Nhập sai ${SO_LAN_SAI_TOI_DA} lần – mã OTP đã bị hủy. Vui lòng gửi lại mã`, { maCode: "Mã đã bị hủy", hetHan: "1" });
@@ -58,7 +59,7 @@ export const matKhauService = {
     const tk = await layTaiKhoan(soDienThoaiTho);
     const otp = await prisma.$transaction(async (tx) => {
       const otp = await MaOTP.taoMa(tk.maTK, HAN_OTP_PHUT, tx); // vô hiệu mã cũ, cấp mã 6 số mới
-      await nhatKyRepository.ghi({ maTK: tk.maTK, module: MODULE, hanhDong: "YEU_CAU_OTP", noiDung: `OTP #${otp.maOTP} – hết hạn ${otp.thoiGianHetHan.toLocaleTimeString("vi-VN")}` }, tx);
+      await NhatKyHeThong.ghiNhatKy({ maTK: tk.maTK, module: MODULE, hanhDong: "YEU_CAU_OTP", noiDung: `OTP #${otp.maOTP} – hết hạn ${otp.thoiGianHetHan.toLocaleTimeString("vi-VN")}` }, tx);
       return otp;
     });
     const { maCode, thoiGianHetHan: hetHanLuc } = otp;
@@ -86,7 +87,7 @@ export const matKhauService = {
         throw new LoiNghiepVu("Mã OTP đã được sử dụng. Vui lòng gửi lại mã", { maCode: "Mã đã được sử dụng", hetHan: "1" });
       }
       await tk.doiMatKhau(matKhauMoi, tx);
-      await nhatKyRepository.ghi({ maTK: tk.maTK, module: MODULE, hanhDong: "DAT_LAI_MAT_KHAU_OTP", noiDung: `OTP #${otp.maOTP}` }, tx);
+      await NhatKyHeThong.ghiNhatKy({ maTK: tk.maTK, module: MODULE, hanhDong: "DAT_LAI_MAT_KHAU_OTP", noiDung: `OTP #${otp.maOTP}` }, tx);
     });
   },
 };

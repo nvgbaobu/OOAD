@@ -7,13 +7,14 @@
 import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { hoaDonRepository, type LocHoaDon } from "@/lib/repositories/hoaDonRepository";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
-import { HoaDon } from "@/lib/thucThe/HoaDon";
-import { Sach } from "@/lib/thucThe/Sach";
-import { KhachHang } from "@/lib/thucThe/KhachHang";
-import { HangThanhVien } from "@/lib/thucThe/HangThanhVien";
-import { MaGiamGia } from "@/lib/thucThe/MaGiamGia";
+import { taiKhoanRepository } from "@/lib/repositories/taiKhoanRepository";
+import { HoaDon } from "@/lib/entities/HoaDon";
+import { Sach } from "@/lib/entities/Sach";
+import { KhachHang } from "@/lib/entities/KhachHang";
+import { HangThanhVien } from "@/lib/entities/HangThanhVien";
+import { MaGiamGia } from "@/lib/entities/MaGiamGia";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 export const SO_HOA_DON_MOI_TRANG = 20;
 export const TRANG_THAI_HOA_DON = { DA_THANH_TOAN: "Đã thanh toán", DA_HUY: "Đã hủy (sau thanh toán)", NHAP_HUY: "Đơn nháp đã hủy" } as const;
@@ -48,7 +49,7 @@ export const hoaDonService = {
     return { ...hd, diemCong: hd.maKH ? hoaDon.tinhDiemCong(Number(tyLeQuyDoiDiem)) : 0, tienThoiLai: hoaDon.tienThoiLai() };
   },
 
-  nhanVien: () => prisma.taiKhoan.findMany({ select: { maTK: true, hoTen: true }, orderBy: { hoTen: "asc" } }),
+  nhanVien: () => taiKhoanRepository.danhSachTen(),
 
   async huy(maHD: number, lyDoTho: string, maTK: number) {
     const lyDo = lyDoTho.trim().replace(/\s+/g, " ");
@@ -56,10 +57,7 @@ export const hoaDonService = {
     if (lyDo.length > 255) throw new LoiNghiepVu("Lý do tối đa 255 ký tự", { lyDoHuy: "Tối đa 255 ký tự" });
 
     await prisma.$transaction(async (tx) => {
-      const hd = await tx.hoaDon.findUnique({
-        where: { maHD },
-        include: { chiTiets: { include: { sach: { select: { tenSach: true } } } }, khachHang: { include: { hangThanhVien: true } }, maGiamGia: true },
-      });
+      const hd = await hoaDonRepository.layDeHuy(tx, maHD);
       if (!hd) throw new LoiNghiepVu("Hóa đơn không tồn tại");
       const loiTrangThai = hd.trangThai === "DA_HUY" ? "Hóa đơn đã bị hủy trước đó" : "Chỉ hủy được hóa đơn đã thanh toán";
       if (hd.trangThai !== "DA_THANH_TOAN") throw new LoiNghiepVu(loiTrangThai); // đơn nháp (DANG_LAP) hủy ở POS
@@ -78,8 +76,7 @@ export const hoaDonService = {
         const thieu = await khach.hoanDiem(hd.diemSuDung, diemCong, tx);
         ghiChu.push(`KH ${kh.soDienThoai}: +${hd.diemSuDung} điểm đã dùng, −${diemCong} điểm đã cộng${thieu ? ` (khách đã tiêu, hụt ${thieu} điểm)` : ""}`);
         // Xét lại hạng theo điểm tích lũy mới (có thể hạ nếu hóa đơn này đã giúp khách lên hạng)
-        const moi = await tx.khachHang.findUniqueOrThrow({ where: { maKH: kh.maKH }, select: { diemTichLuy: true } });
-        const hang = await HangThanhVien.xacDinhHang(moi.diemTichLuy, tx);
+        const hang = await HangThanhVien.xacDinhHang(khach.diemTichLuy, tx); // điểm tích lũy sau khi trừ
         if (hang && hang.maHang !== kh.maHang && hang.diemToiThieu < kh.hangThanhVien.diemToiThieu) {
           await khach.capNhatHang(hang, tx);
           ghiChu.push(`hạng ${kh.hangThanhVien.tenHang} → ${hang.tenHang}`);
@@ -88,7 +85,7 @@ export const hoaDonService = {
       if (hd.maGiamGia && (await new MaGiamGia(hd.maGiamGia).hoanLuotDung(tx))) {
         ghiChu.push(`hoàn 1 lượt mã ${hd.maGiamGia.maCode}`);
       }
-      await nhatKyRepository.ghi({ maTK, module: "HOA_DON", hanhDong: "HUY", noiDung: `#${maHD} (${Number(hd.tongTien)}đ) – ${lyDo}; ${ghiChu.join("; ")}` }, tx);
+      await NhatKyHeThong.ghiNhatKy({ maTK, module: "HOA_DON", hanhDong: "HUY", noiDung: `#${maHD} (${Number(hd.tongTien)}đ) – ${lyDo}; ${ghiChu.join("; ")}` }, tx);
     });
   },
 };

@@ -6,9 +6,12 @@ import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import type { Db } from "@/lib/db";
 import { khachHangRepository, type LocKhachHang } from "@/lib/repositories/khachHangRepository";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
+import { hoaDonRepository } from "@/lib/repositories/hoaDonRepository";
 import { tinhDiemCong } from "@/lib/services/tinhTienHoaDon";
+import { KhachHang } from "@/lib/entities/KhachHang";
+import { HangThanhVien } from "@/lib/entities/HangThanhVien";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 export class LoiKhachHang extends LoiNghiepVu {}
 
@@ -26,7 +29,7 @@ async function kiemTra(d: DuLieuKhachHang, db: Db, maKHDangSua?: number): Promis
   const diaChi = d.diaChi?.trim().replace(/\s+/g, " ") || null;
   if (!SDT_HOP_LE.test(soDienThoai)) loi.soDienThoai = "Số điện thoại gồm 10 chữ số, bắt đầu bằng 0";
   else {
-    const trung = await khachHangRepository.timTheoSoDienThoai(db, soDienThoai);
+    const trung = await KhachHang.timTheoSDT(soDienThoai, db);
     if (trung && trung.maKH !== maKHDangSua) loi.soDienThoai = `Số điện thoại ${soDienThoai} đã được đăng ký (${trung.hoTen})`;
   }
   if (hoTen.length < 2) loi.hoTen = "Nhập họ tên khách hàng";
@@ -47,7 +50,7 @@ async function kiemTraHang(f: FormHang, maHangDangSua: number | null) {
   const tenHang = f.tenHang.trim().replace(/\s+/g, " ");
   const diemToiThieu = f.diemToiThieu.trim() === "" ? NaN : Number(f.diemToiThieu);
   const phanTramUuDai = f.phanTramUuDai.trim() === "" ? NaN : Number(f.phanTramUuDai);
-  const khac = (await prisma.hangThanhVien.findMany()).filter((h) => h.maHang !== maHangDangSua);
+  const khac = (await HangThanhVien.layDanhSach()).filter((h) => h.maHang !== maHangDangSua);
   if (!tenHang) loi.tenHang = "Nhập tên hạng";
   else if (tenHang.length > 50) loi.tenHang = "Tối đa 50 ký tự";
   else if (khac.some((h) => h.tenHang.toLowerCase() === tenHang.toLowerCase())) loi.tenHang = "Tên hạng đã tồn tại";
@@ -66,10 +69,11 @@ export const khachHangService = {
   /** Tạo khách hàng mới, gán hạng thấp nhất, 0 điểm. */
   async taoMoi(duLieu: DuLieuKhachHang, maTKThucHien: number, db: Db = prisma) {
     const d = await kiemTra(duLieu, db);
-    const hang = await khachHangRepository.hangThapNhat(db);
+    const hang = await HangThanhVien.hangThapNhat(db);
     if (!hang) throw new Error("Chưa có hạng thành viên nào (HangThanhVien). Hãy chạy seed.");
-    const kh = await khachHangRepository.tao(db, { ...d, maHang: hang.maHang, diemHienTai: 0, diemTichLuy: 0 });
-    await nhatKyRepository.ghi(
+    const kh = KhachHang.moi({ soDienThoai: d.soDienThoai, hoTen: d.hoTen, email: d.email ?? null, diaChi: d.diaChi ?? null }, hang);
+    await kh.luu(db);
+    await NhatKyHeThong.ghiNhatKy(
       { maTK: maTKThucHien, module: "KHACH_HANG", hanhDong: "THEM", noiDung: `KH #${kh.maKH} ${kh.hoTen} – ${kh.soDienThoai}` },
       db,
     );
@@ -77,22 +81,24 @@ export const khachHangService = {
   },
 
   async capNhat(maKH: number, duLieu: DuLieuKhachHang, maTK: number) {
-    const cu = await prisma.khachHang.findUnique({ where: { maKH } });
-    if (!cu) throw new LoiKhachHang("Khách hàng không tồn tại");
+    const kh = await KhachHang.timTheoMa(maKH);
+    if (!kh) throw new LoiKhachHang("Khách hàng không tồn tại");
+    const cu = { soDienThoai: kh.soDienThoai };
     const d = await kiemTra(duLieu, prisma, maKH);
-    await prisma.khachHang.update({ where: { maKH }, data: d });
-    await nhatKyRepository.ghi({
+    await kh.capNhatThongTin({ soDienThoai: d.soDienThoai, hoTen: d.hoTen, email: d.email ?? null, diaChi: d.diaChi ?? null });
+    await NhatKyHeThong.ghiNhatKy({
       maTK, module: "KHACH_HANG", hanhDong: "SUA",
       noiDung: `KH #${maKH} ${d.hoTen}${cu.soDienThoai !== d.soDienThoai ? ` (SĐT ${cu.soDienThoai} → ${d.soDienThoai})` : ""}`,
     });
   },
 
   async xoa(maKH: number, maTK: number) {
-    const kh = await prisma.khachHang.findUnique({ where: { maKH }, include: { _count: { select: { hoaDons: true } } } });
+    const kh = await KhachHang.timTheoMa(maKH);
     if (!kh) throw new LoiKhachHang("Khách hàng không tồn tại");
-    if (kh._count.hoaDons) throw new LoiKhachHang(`Không xóa được: khách đã có ${kh._count.hoaDons} hóa đơn`);
-    await prisma.khachHang.delete({ where: { maKH } });
-    await nhatKyRepository.ghi({ maTK, module: "KHACH_HANG", hanhDong: "XOA", noiDung: `${kh.hoTen} – ${kh.soDienThoai}` });
+    const soHoaDon = await kh.soHoaDon();
+    if (soHoaDon) throw new LoiKhachHang(`Không xóa được: khách đã có ${soHoaDon} hóa đơn`);
+    await kh.xoa();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "KHACH_HANG", hanhDong: "XOA", noiDung: `${kh.hoTen} – ${kh.soDienThoai}` });
   },
 
   async danhSach(loc: LocKhachHang, trang: number) {
@@ -106,16 +112,12 @@ export const khachHangService = {
 
   /** Chi tiết khách + thống kê mua + lịch sử điểm (suy ra từ hóa đơn) + hạng kế tiếp. */
   async layChiTiet(maKH: number) {
-    const kh = await prisma.khachHang.findUnique({ where: { maKH }, include: { hangThanhVien: true } });
+    const kh = await khachHangRepository.timTheoMaKemHang(maKH);
     if (!kh) return null;
     const [thongKe, hoaDons, hangKeTiep] = await Promise.all([
       khachHangRepository.thongKeMua([maKH]),
-      prisma.hoaDon.findMany({
-        where: { maKH, phuongThucTT: { not: null } }, // đã thanh toán (kể cả đã hủy sau đó)
-        select: { maHD: true, maTK: true, thoiGianTao: true, thoiGianCapNhat: true, trangThai: true, tongTien: true, diemSuDung: true, lyDoHuy: true },
-        orderBy: { maHD: "desc" }, take: 50,
-      }),
-      prisma.hangThanhVien.findFirst({ where: { diemToiThieu: { gt: kh.diemTichLuy } }, orderBy: { diemToiThieu: "asc" } }),
+      hoaDonRepository.lichSuCuaKhach(maKH), // đã thanh toán (kể cả đã hủy sau đó)
+      khachHangRepository.hangKeTiep(kh.diemTichLuy),
     ]);
     const { tyLeQuyDoiDiem } = await cauHinhRepository.lay();
     const hoaDonsKemDiem = hoaDons.map((h) => ({ ...h, diemCong: tinhDiemCong(Number(h.tongTien), Number(tyLeQuyDoiDiem)) }));
@@ -124,23 +126,23 @@ export const khachHangService = {
 
   // ───────── Hạng thành viên (Admin) ─────────
 
-  danhSachHang: () => prisma.hangThanhVien.findMany({ include: { _count: { select: { khachHangs: true } } }, orderBy: { diemToiThieu: "asc" } }),
+  danhSachHang: () => khachHangRepository.danhSachHangKemSoKhach(),
 
   /** Thêm (maHang null) / sửa hạng, rồi xét lại hạng toàn bộ khách. Trả về số khách đổi hạng. */
   async luuHang(maHang: number | null, f: FormHang, maTK: number) {
     const d = await kiemTraHang(f, maHang);
     return prisma.$transaction(async (tx) => {
-      if (maHang === null) await tx.hangThanhVien.create({ data: d });
+      if (maHang === null) await HangThanhVien.moi(d).luu(tx);
       else {
-        const cu = await tx.hangThanhVien.findUnique({ where: { maHang } });
-        if (!cu) throw new LoiNghiepVu("Hạng không tồn tại");
-        if (cu.diemToiThieu === 0 && d.diemToiThieu !== 0) {
+        const hang = await HangThanhVien.timTheoMa(maHang, tx);
+        if (!hang) throw new LoiNghiepVu("Hạng không tồn tại");
+        if (hang.laHangKhachMoi() && d.diemToiThieu !== 0) {
           throw new LoiNghiepVu("Hạng mốc 0 điểm là hạng của khách mới – không đổi mốc điểm", { diemToiThieu: "Giữ 0" });
         }
-        await tx.hangThanhVien.update({ where: { maHang }, data: d });
+        await hang.capNhatMocHang(d, tx);
       }
-      const soDoi = await khachHangRepository.xetLaiHang(tx);
-      await nhatKyRepository.ghi({
+      const soDoi = await KhachHang.xetLaiHangToanBo(tx);
+      await NhatKyHeThong.ghiNhatKy({
         maTK, module: "HANG_THANH_VIEN", hanhDong: maHang === null ? "THEM" : "SUA",
         noiDung: `${d.tenHang}: từ ${d.diemToiThieu} điểm, ưu đãi ${d.phanTramUuDai}%; ${soDoi} khách đổi hạng`,
       }, tx);
@@ -150,12 +152,12 @@ export const khachHangService = {
 
   async xoaHang(maHang: number, maTK: number) {
     return prisma.$transaction(async (tx) => {
-      const h = await tx.hangThanhVien.findUnique({ where: { maHang } });
+      const h = await HangThanhVien.timTheoMa(maHang, tx);
       if (!h) throw new LoiNghiepVu("Hạng không tồn tại");
-      if (h.diemToiThieu === 0) throw new LoiNghiepVu("Không xóa được hạng mốc 0 điểm (hạng của khách mới)");
-      const soDoi = await khachHangRepository.xetLaiHang(tx, maHang); // chuyển khách sang hạng khác trước khi xóa
-      await tx.hangThanhVien.delete({ where: { maHang } });
-      await nhatKyRepository.ghi({ maTK, module: "HANG_THANH_VIEN", hanhDong: "XOA", noiDung: `${h.tenHang}; ${soDoi} khách đổi hạng` }, tx);
+      if (h.laHangKhachMoi()) throw new LoiNghiepVu("Không xóa được hạng mốc 0 điểm (hạng của khách mới)");
+      const soDoi = await KhachHang.xetLaiHangToanBo(tx, maHang); // chuyển khách sang hạng khác trước khi xóa
+      await h.xoa(tx);
+      await NhatKyHeThong.ghiNhatKy({ maTK, module: "HANG_THANH_VIEN", hanhDong: "XOA", noiDung: `${h.tenHang}; ${soDoi} khách đổi hạng` }, tx);
       return soDoi;
     });
   },

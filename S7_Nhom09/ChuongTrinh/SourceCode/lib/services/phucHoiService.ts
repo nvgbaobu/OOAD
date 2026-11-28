@@ -8,10 +8,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sql from "mssql";
-import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { caiDatService } from "@/lib/services/caiDatService";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { banSaoLuuRepository } from "@/lib/repositories/banSaoLuuRepository";
+import { BanSaoLuu } from "@/lib/entities/BanSaoLuu";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 const TEN_DB = () => {
   const db = process.env.DB_NAME ?? "QuanLyBanSach";
@@ -53,7 +54,7 @@ async function kiemTraFile(pool: sql.ConnectionPool, duongDan: string, db: strin
 /** Đợi kết nối Prisma dùng lại được sau khi CSDL bị ngắt kết nối/phục hồi. */
 async function choKetNoiLai() {
   for (let i = 0; i < 5; i++) {
-    try { await prisma.$queryRaw`SELECT 1`; return; } catch { await new Promise((r) => setTimeout(r, 500)); }
+    try { await banSaoLuuRepository.kiemTraKetNoi(); return; } catch { await new Promise((r) => setTimeout(r, 500)); }
   }
 }
 
@@ -61,10 +62,7 @@ type DongSaoLuu = { maTK: number; thoiGian: Date; duongDanFile: string; kichThuo
 
 /** Sau RESTORE, CSDL không có các dòng BanSaoLuu tạo sau thời điểm file .bak → ghi lại nếu thiếu (so theo đường dẫn). */
 async function damBaoCoDongSaoLuu(dongs: DongSaoLuu[]) {
-  for (const d of dongs) {
-    const daCo = await prisma.banSaoLuu.findFirst({ where: { duongDanFile: d.duongDanFile }, select: { maBackup: true } });
-    if (!daCo) await prisma.banSaoLuu.create({ data: { maTK: d.maTK, thoiGian: d.thoiGian, duongDanFile: d.duongDanFile, kichThuoc: d.kichThuoc } });
-  }
+  for (const d of dongs) await BanSaoLuu.ghiLaiNeuThieu(d);
 }
 
 async function phucHoiTuDuongDan(duongDan: string, moTaNguon: string, maTK: number, giuLai: DongSaoLuu[] = []) {
@@ -87,7 +85,7 @@ async function phucHoiTuDuongDan(duongDan: string, moTaNguon: string, maTK: numb
     // CSDL vừa phục hồi không có dòng của bản nguồn (nếu nó được tạo sau thời điểm của chính file .bak),
     // bản sao lưu an toàn và nhật ký lần này → ghi lại
     await damBaoCoDongSaoLuu([...giuLai, { maTK, thoiGian: anToan.thoiGian, duongDanFile: anToan.duongDanFile, kichThuoc: anToan.kichThuoc }]).catch(() => undefined);
-    await nhatKyRepository.ghi({ maTK, module: "CAI_DAT", hanhDong: "PHUC_HOI", noiDung: `Phục hồi từ ${moTaNguon}. Bản sao lưu trước khi phục hồi: ${anToan.duongDanFile}` }).catch(() => undefined);
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "CAI_DAT", hanhDong: "PHUC_HOI", noiDung: `Phục hồi từ ${moTaNguon}. Bản sao lưu trước khi phục hồi: ${anToan.duongDanFile}` }).catch(() => undefined);
     return { anToan: anToan.duongDanFile };
   } finally {
     await pool.close();
@@ -97,7 +95,7 @@ async function phucHoiTuDuongDan(duongDan: string, moTaNguon: string, maTK: numb
 export const phucHoiService = {
   /** Phục hồi từ một bản sao lưu đã có trong danh sách. */
   async tuBanSaoLuu(maBackup: number, maTK: number) {
-    const bs = Number.isInteger(maBackup) ? await prisma.banSaoLuu.findUnique({ where: { maBackup } }) : null;
+    const bs = Number.isInteger(maBackup) ? await BanSaoLuu.timTheoMa(maBackup) : null;
     if (!bs) throw new LoiNghiepVu("Không tìm thấy bản sao lưu");
     return phucHoiTuDuongDan(bs.duongDanFile, `bản sao lưu #${bs.maBackup} (${bs.duongDanFile})`, maTK, [bs]);
   },

@@ -5,8 +5,8 @@ import type { Db } from "@/lib/db";
 import type { Prisma, HoaDon as HoaDonModel } from "@/lib/generated/prisma/client";
 import { hoaDonRepository, type LocHoaDon } from "@/lib/repositories/hoaDonRepository";
 import { tinhTienHoaDon, tinhDiemCong, type DauVaoTinhTien, type KetQuaTinhTien } from "@/lib/services/tinhTienHoaDon";
-import { ChiTietHoaDon } from "@/lib/thucThe/ChiTietHoaDon";
-import type { Sach } from "@/lib/thucThe/Sach";
+import { ChiTietHoaDon } from "@/lib/entities/ChiTietHoaDon";
+import type { Sach } from "@/lib/entities/Sach";
 
 export type TrangThaiHoaDon = "DANG_LAP" | "DA_THANH_TOAN" | "DA_HUY";
 
@@ -47,7 +47,36 @@ export class HoaDon implements HoaDonModel {
     return Object.assign(Object.create(HoaDon.prototype) as HoaDon, { maHD, trangThai });
   }
 
+  /** Lập đơn mới (giỏ hàng POS) cho nhân viên – trạng thái Đang lập. */
+  static async lapDonMoi(maTK: number, db: Db = prisma): Promise<HoaDon> {
+    return new HoaDon(await hoaDonRepository.taoDonDangLap(db, maTK));
+  }
+
   // ───── Phương thức ─────
+
+  /** Đánh dấu đơn vừa được sửa (gia hạn thời gian tự hủy đơn nháp). */
+  async danhDauCapNhat(db: Db = prisma): Promise<void> {
+    this.thoiGianCapNhat = (await hoaDonRepository.capNhatDon(db, this.maHD)).thoiGianCapNhat;
+  }
+
+  /** Gắn (hoặc bỏ, khi null) khách thành viên cho đơn đang lập; điểm đã nhập bị đặt lại 0. */
+  async ganKhachHang(maKH: number | null, db: Db = prisma): Promise<void> {
+    await hoaDonRepository.capNhatDon(db, this.maHD, { maKH, diemSuDung: 0 });
+    Object.assign(this, { maKH, diemSuDung: 0 });
+  }
+
+  /** Áp (hoặc bỏ, khi null) mã giảm giá. Đổi mã → điểm đã nhập đặt lại 0 (thứ tự áp: hạng → mã → điểm). */
+  async apMaGiamGia(maMGG: number | null, db: Db = prisma): Promise<void> {
+    const data = maMGG === null ? { maMGG } : { maMGG, diemSuDung: 0 };
+    await hoaDonRepository.capNhatDon(db, this.maHD, data);
+    Object.assign(this, data);
+  }
+
+  /** Đặt số điểm khách muốn đổi cho đơn đang lập. */
+  async datDiemSuDung(diem: number, db: Db = prisma): Promise<void> {
+    await hoaDonRepository.capNhatDon(db, this.maHD, { diemSuDung: diem });
+    this.diemSuDung = diem;
+  }
 
   /**
    * Thêm sách vào đơn đang lập: sách đã có trong đơn thì cộng dồn số lượng, chưa có thì thêm dòng mới

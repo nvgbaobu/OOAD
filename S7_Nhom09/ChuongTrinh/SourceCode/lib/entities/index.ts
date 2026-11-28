@@ -2,7 +2,7 @@
 // Mỗi lớp khai báo THUỘC TÍNH (= cột trong prisma/schema.prisma; `implements <Model>` để TypeScript báo lỗi nếu lệch)
 // và PHƯƠNG THỨC (gọi xuống lib/repositories – lớp thực thể không gọi Prisma trực tiếp).
 // Kiến trúc: giao diện (app/) → server action (app/actions) → service (lib/services, điều phối nghiệp vụ + transaction)
-//            → lớp thực thể (lib/thucThe) → repository (lib/repositories, truy vấn SQL Server).
+//            → lớp thực thể (lib/entities) → repository (lib/repositories, truy vấn SQL Server).
 // Lưu ý: chỉ dùng lớp thực thể bên trong service; dữ liệu trả lên giao diện là object thường
 // (Next.js không cho truyền đối tượng có phương thức từ server sang client component).
 export { TaiKhoan } from "./TaiKhoan";

@@ -4,10 +4,10 @@ import type { Db } from "@/lib/db";
 import { Prisma } from "@/lib/generated/prisma/client";
 import type { PhieuNhap as PhieuNhapModel, ChiTietPhieuNhap as ChiTietPhieuNhapModel } from "@/lib/generated/prisma/client";
 import { phieuKhoRepository } from "@/lib/repositories/phieuKhoRepository";
-import { PhieuKho, type DuLieuXuLyPhieu } from "@/lib/thucThe/PhieuKho";
-import { ChiTietPhieuNhap } from "@/lib/thucThe/ChiTietPhieuKho";
-import type { NhaCungCap } from "@/lib/thucThe/NhaCungCap";
-import type { Sach } from "@/lib/thucThe/Sach";
+import { PhieuKho, type DuLieuXuLyPhieu } from "@/lib/entities/PhieuKho";
+import { ChiTietPhieuNhap } from "@/lib/entities/ChiTietPhieuKho";
+import type { NhaCungCap } from "@/lib/entities/NhaCungCap";
+import type { Sach } from "@/lib/entities/Sach";
 
 export class PhieuNhap extends PhieuKho implements PhieuNhapModel {
   // ───── Thuộc tính (maTKLap, maTKDuyet, ngayLap, ngayDuyet, trangThai, ghiChu, lyDoTuChoi kế thừa từ PhieuKho) ─────

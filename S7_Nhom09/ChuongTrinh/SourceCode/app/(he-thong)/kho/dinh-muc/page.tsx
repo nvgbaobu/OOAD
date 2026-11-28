@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Form from "next/form";
 import Link from "next/link";
 import { yeuCauDangNhap } from "@/lib/auth/dal";
-import { sachRepository } from "@/lib/repositories/sachRepository";
+import { sachService } from "@/lib/services/sachService";
 import FormDinhMuc from "./FormDinhMuc";
 
 export const metadata: Metadata = { title: "Thiết lập định mức" };
@@ -13,7 +13,7 @@ export default async function TrangDinhMuc(props: PageProps<"/kho/dinh-muc">) {
   const sp = await props.searchParams;
   const tuKhoa = typeof sp.tuKhoa === "string" ? sp.tuKhoa.trim() : "";
   const sapHet = sp.sapHet === "1";
-  const ds = await sachRepository.danhSach({ tuKhoa, trangThai: "DANG_BAN", sapHet }, 0, 200);
+  const ds = await sachService.danhSachDatDinhMuc({ tuKhoa, sapHet });
   const sachs = ds.map((s) => ({ maSach: s.maSach, tenSach: s.tenSach, isbn: s.isbn, tenTL: s.theLoai.tenTL, soLuongTon: s.soLuongTon, dinhMucToiThieu: s.dinhMucToiThieu }));
 
   return (

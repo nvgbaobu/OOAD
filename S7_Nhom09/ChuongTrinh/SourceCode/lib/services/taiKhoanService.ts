@@ -4,13 +4,12 @@
 // - Luôn còn ít nhất 1 Admin đang hoạt động; Admin không tự khóa / tự hạ quyền chính mình.
 // - Khóa tài khoản: mất quyền ngay ở request kế tiếp (DAL đọc lại DB) + hủy đơn đang lập của người đó (giải phóng tạm giữ).
 // - Đổi/đặt lại mật khẩu không làm mất phiên đang mở (phiên JWT không lưu DB – giữ đúng 21 bảng); muốn đuổi ra ngay thì khóa.
-import bcrypt from "bcryptjs";
 import { LoiNghiepVu } from "@/lib/loi";
 import { taiKhoanRepository } from "@/lib/repositories/taiKhoanRepository";
-import { TaiKhoan } from "@/lib/thucThe/TaiKhoan";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
+import { TaiKhoan } from "@/lib/entities/TaiKhoan";
 import { posService, LY_DO_HUY } from "@/lib/services/posService";
 import type { VaiTro } from "@/lib/auth/token";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 export const TEN_VAI_TRO: Record<VaiTro, string> = { ADMIN: "Quản trị", STAFF: "Nhân viên" };
 export type FormTaiKhoan = { soDienThoai: string; hoTen: string; email: string; vaiTro: string; matKhau?: string };
@@ -45,47 +44,49 @@ export const taiKhoanService = {
     const loi: Record<string, string> = {};
     const soDienThoai = f.soDienThoai.replace(/[\s.-]/g, "");
     if (!/^0\d{9}$/.test(soDienThoai)) loi.soDienThoai = "Số điện thoại gồm 10 chữ số, bắt đầu bằng 0";
-    else if (await taiKhoanRepository.timTheoSoDienThoai(soDienThoai)) loi.soDienThoai = "Số điện thoại đã tồn tại (đã có tài khoản)";
+    else if (await TaiKhoan.timTheoSDT(soDienThoai)) loi.soDienThoai = "Số điện thoại đã tồn tại (đã có tài khoản)";
     const d = kiemTraThongTin(f, loi);
     kiemTraMatKhau(f.matKhau ?? "", "matKhau", loi);
     nemNeuLoi(loi);
-    const tk = await taiKhoanRepository.tao({ soDienThoai, ...d, matKhauHash: await bcrypt.hash(f.matKhau!, 10), trangThai: "HOAT_DONG" });
-    await nhatKyRepository.ghi({ maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: "THEM", noiDung: `#${tk.maTK} ${tk.hoTen} – ${soDienThoai} (${d.vaiTro})` });
-    return tk;
+    const tk = await TaiKhoan.moi({ soDienThoai, ...d }, f.matKhau!);
+    await tk.luu();
+    await NhatKyHeThong.ghiNhatKy({ maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: "THEM", noiDung: `#${tk.maTK} ${tk.hoTen} – ${soDienThoai} (${d.vaiTro})` });
+    return tk.thongTinCongKhai(); // không trả hash mật khẩu
   },
 
   async capNhat(maTK: number, f: FormTaiKhoan, maTKAdmin: number) {
-    const cu = await taiKhoanRepository.timTheoMa(maTK);
-    if (!cu) throw new LoiNghiepVu("Tài khoản không tồn tại");
+    const tk = await TaiKhoan.timTheoMa(maTK);
+    if (!tk) throw new LoiNghiepVu("Tài khoản không tồn tại");
+    const cu = { vaiTro: tk.vaiTro };
     const loi: Record<string, string> = {};
     const d = kiemTraThongTin(f, loi);
     if (!loi.vaiTro && cu.vaiTro === "ADMIN" && d.vaiTro !== "ADMIN") {
       if (maTK === maTKAdmin) loi.vaiTro = "Không tự hạ quyền của chính mình";
-      else if (cu.trangThai === "HOAT_DONG" && (await taiKhoanRepository.demAdminHoatDong()) <= 1) loi.vaiTro = "Phải còn ít nhất 1 Admin hoạt động";
+      else if (tk.trangThai === "HOAT_DONG" && (await TaiKhoan.soAdminHoatDong()) <= 1) loi.vaiTro = "Phải còn ít nhất 1 Admin hoạt động";
     }
     nemNeuLoi(loi);
-    await taiKhoanRepository.capNhat(maTK, d);
-    await nhatKyRepository.ghi({
+    Object.assign(tk, d);
+    await tk.luu();
+    await NhatKyHeThong.ghiNhatKy({
       maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: "SUA",
       noiDung: `#${maTK} ${d.hoTen}${cu.vaiTro !== d.vaiTro ? ` (vai trò ${cu.vaiTro} → ${d.vaiTro})` : ""}`,
     });
   },
 
   async doiTrangThai(maTK: number, khoa: boolean, maTKAdmin: number) {
-    const tk = await taiKhoanRepository.timTheoMa(maTK);
+    const tk = await TaiKhoan.timTheoMa(maTK);
     if (!tk) throw new LoiNghiepVu("Tài khoản không tồn tại");
     if (khoa) {
       if (maTK === maTKAdmin) throw new LoiNghiepVu("Không tự khóa tài khoản của chính mình");
-      if (tk.vaiTro === "ADMIN" && tk.trangThai === "HOAT_DONG" && (await taiKhoanRepository.demAdminHoatDong()) <= 1) {
+      if (tk.vaiTro === "ADMIN" && tk.trangThai === "HOAT_DONG" && (await TaiKhoan.soAdminHoatDong()) <= 1) {
         throw new LoiNghiepVu("Phải còn ít nhất 1 Admin hoạt động");
       }
     }
     const trangThai = khoa ? "KHOA" : "HOAT_DONG";
     if (tk.trangThai === trangThai) return;
-    const taiKhoan = new TaiKhoan(tk);
-    await (khoa ? taiKhoan.khoa() : taiKhoan.moKhoa());
+    await (khoa ? tk.khoa() : tk.moKhoa());
     const huyDon = khoa ? await posService.huyDonDangLapCua(maTK, LY_DO_HUY.KHOA_TAI_KHOAN) : false;
-    await nhatKyRepository.ghi({
+    await NhatKyHeThong.ghiNhatKy({
       maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: khoa ? "KHOA" : "MO_KHOA",
       noiDung: `#${maTK} ${tk.hoTen}${huyDon ? " – đã hủy đơn đang lập" : ""}`,
     });
@@ -93,21 +94,20 @@ export const taiKhoanService = {
 
   /** Admin đặt lại mật khẩu cho người khác (vd: nhân viên quên mật khẩu). */
   async datLaiMatKhau(maTK: number, matKhau: string, nhapLai: string, maTKAdmin: number) {
-    const tk = await taiKhoanRepository.timTheoMa(maTK);
+    const tk = await TaiKhoan.timTheoMa(maTK);
     if (!tk) throw new LoiNghiepVu("Tài khoản không tồn tại");
     const loi: Record<string, string> = {};
     kiemTraMatKhau(matKhau, "matKhauMoi", loi);
     if (!loi.matKhauMoi && matKhau !== nhapLai) loi.nhapLai = "Nhập lại không khớp";
     nemNeuLoi(loi);
-    await new TaiKhoan(tk).doiMatKhau(matKhau);
-    await nhatKyRepository.ghi({ maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: "DAT_LAI_MAT_KHAU", noiDung: `#${maTK} ${tk.hoTen}` });
+    await tk.doiMatKhau(matKhau);
+    await NhatKyHeThong.ghiNhatKy({ maTK: maTKAdmin, module: "TAI_KHOAN", hanhDong: "DAT_LAI_MAT_KHAU", noiDung: `#${maTK} ${tk.hoTen}` });
   },
 
   /** Người dùng tự đổi mật khẩu (phải nhập đúng mật khẩu hiện tại). */
   async doiMatKhau(maTK: number, matKhauCu: string, matKhauMoi: string, nhapLai: string) {
-    const tk = await taiKhoanRepository.timTheoMa(maTK);
-    if (!tk) throw new LoiNghiepVu("Tài khoản không tồn tại");
-    const taiKhoan = new TaiKhoan(tk);
+    const taiKhoan = await TaiKhoan.timTheoMa(maTK);
+    if (!taiKhoan) throw new LoiNghiepVu("Tài khoản không tồn tại");
     const loi: Record<string, string> = {};
     if (!(await taiKhoan.kiemTraMatKhau(matKhauCu))) loi.matKhauCu = "Mật khẩu hiện tại không đúng";
     kiemTraMatKhau(matKhauMoi, "matKhauMoi", loi);
@@ -115,6 +115,6 @@ export const taiKhoanService = {
     if (!loi.matKhauMoi && matKhauMoi !== nhapLai) loi.nhapLai = "Nhập lại không khớp";
     nemNeuLoi(loi);
     await taiKhoan.doiMatKhau(matKhauMoi);
-    await nhatKyRepository.ghi({ maTK, module: "TAI_KHOAN", hanhDong: "DOI_MAT_KHAU" });
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "TAI_KHOAN", hanhDong: "DOI_MAT_KHAU" });
   },
 };

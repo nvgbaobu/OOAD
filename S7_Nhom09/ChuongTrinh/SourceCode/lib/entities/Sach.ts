@@ -7,6 +7,11 @@ import type { Prisma, Sach as SachModel } from "@/lib/generated/prisma/client";
 import { sachRepository, type LocSach } from "@/lib/repositories/sachRepository";
 
 export type TrangThaiSach = "DANG_BAN" | "NGUNG_KINH_DOANH";
+/** Dữ liệu sửa được trên form sách (đã kiểm tra ở sachService). */
+export type DuLieuSach = {
+  isbn: string; tenSach: string; tacGia: string; nhaXuatBan: string | null; namXB: number | null; maTL: number;
+  giaNhap: number; giaBan: number; hinhAnh: string | null; viTriKe: string | null; dinhMucToiThieu: number;
+};
 
 export class Sach implements SachModel {
   // ───── Thuộc tính ─────
@@ -36,6 +41,11 @@ export class Sach implements SachModel {
    */
   static thamChieu(maSach: number): Sach {
     return Object.assign(Object.create(Sach.prototype) as Sach, { maSach });
+  }
+
+  /** Sách mới (chưa lưu): tồn 0, đang bán. Tồn kho chỉ tăng qua phiếu nhập có duyệt. */
+  static moi(d: DuLieuSach): Sach {
+    return Object.assign(Object.create(Sach.prototype) as Sach, { maSach: 0, ...d, soLuongTon: 0, soLuongTamGiu: 0, trangThai: "DANG_BAN" });
   }
 
   // ───── Phương thức ─────
@@ -80,6 +90,11 @@ export class Sach implements SachModel {
     return ok;
   }
 
+  /** Cập nhật giá nhập mới nhất (duyệt phiếu nhập) – chỉ khi vẫn ≤ giá bán. Trả về false nếu giá bán đang thấp hơn. */
+  async capNhatGiaNhap(gia: number, db: Db = prisma): Promise<boolean> {
+    return sachRepository.capNhatGiaNhap(db, this.maSach, gia);
+  }
+
   /** Tồn kho đã chạm/dưới định mức tối thiểu → cảnh báo sắp hết hàng. */
   duoiDinhMuc(): boolean {
     return this.soLuongTon <= this.dinhMucToiThieu;
@@ -89,6 +104,17 @@ export class Sach implements SachModel {
   async capNhatDinhMuc(sl: number): Promise<void> {
     await sachRepository.datDinhMuc([this.maSach], sl);
     this.dinhMucToiThieu = sl;
+  }
+
+  /** Đặt cùng một định mức cho nhiều sách một lần (UC4.2). Trả về số sách đã cập nhật. */
+  static capNhatDinhMucNhieu(maSachs: number[], sl: number): Promise<number> {
+    return sachRepository.datDinhMuc(maSachs, sl);
+  }
+
+  /** Cập nhật thông tin sách từ form (giữ nguyên ISBN, tồn kho, trạng thái). */
+  async capNhatThongTin(d: DuLieuSach): Promise<void> {
+    Object.assign(this, d);
+    await this.luu();
   }
 
   /**
@@ -105,9 +131,15 @@ export class Sach implements SachModel {
     return true;
   }
 
+  /** Tìm sách theo ISBN. */
+  static async timTheoISBN(isbn: string): Promise<Sach | null> {
+    const d = await sachRepository.timTheoIsbn(isbn);
+    return d && new Sach(d);
+  }
+
   /** ISBN đã có sách khác dùng chưa (bỏ qua chính sách đang sửa). */
   static async kiemTraTrungISBN(isbn: string, boQuaMaSach?: number): Promise<boolean> {
-    const d = await sachRepository.timTheoIsbn(isbn);
+    const d = await Sach.timTheoISBN(isbn);
     return !!d && d.maSach !== boQuaMaSach;
   }
 

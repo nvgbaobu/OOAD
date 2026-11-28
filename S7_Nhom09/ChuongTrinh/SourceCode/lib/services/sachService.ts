@@ -6,9 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { sachRepository, type LocSach } from "@/lib/repositories/sachRepository";
 import { theLoaiRepository } from "@/lib/repositories/theLoaiRepository";
-import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import { huyDonQuaHan } from "@/lib/services/posService";
-import { Sach } from "@/lib/thucThe/Sach";
+import { Sach } from "@/lib/entities/Sach";
+import { TheLoai } from "@/lib/entities/TheLoai";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
 
 export const SO_SACH_MOI_TRANG = 15;
 export const TRANG_THAI_SACH = { DANG_BAN: "Đang bán", NGUNG_KINH_DOANH: "Ngừng kinh doanh" } as const;
@@ -47,7 +48,7 @@ async function kiemTraSach(f: FormSach, maSachDangSua?: number) {
   if (namXB !== null && (!Number.isInteger(namXB) || namXB < 1900 || namXB > namNay + 1)) {
     loi.namXB = `Năm xuất bản từ 1900 đến ${namNay + 1}`;
   }
-  if (!Number.isInteger(maTL) || !(await theLoaiRepository.timTheoMa(maTL))) loi.maTL = "Chọn thể loại";
+  if (!Number.isInteger(maTL) || !(await TheLoai.timTheoMa(maTL))) loi.maTL = "Chọn thể loại";
   if (!f.giaNhap.trim() || !Number.isFinite(giaNhap) || giaNhap <= 0) loi.giaNhap = "Giá nhập là số > 0";
   if (!f.giaBan.trim() || !Number.isFinite(giaBan) || giaBan <= 0) loi.giaBan = "Giá bán là số > 0";
   else if (!loi.giaNhap && giaBan < giaNhap) loi.giaBan = "Giá bán phải ≥ giá nhập";
@@ -56,7 +57,7 @@ async function kiemTraSach(f: FormSach, maSachDangSua?: number) {
   if (hinhAnh && !/^(https?:\/\/|\/)\S+$/.test(hinhAnh)) loi.hinhAnh = "Đường dẫn ảnh bắt đầu bằng http(s):// hoặc /";
 
   if (!loi.isbn) {
-    const trung = await sachRepository.timTheoIsbn(isbn);
+    const trung = await Sach.timTheoISBN(isbn);
     if (trung && trung.maSach !== maSachDangSua) loi.isbn = `Mã sách đã tồn tại ("${trung.tenSach}")`;
   }
   if (Object.keys(loi).length) throw new LoiNghiepVu("Dữ liệu chưa hợp lệ, kiểm tra các ô báo đỏ", loi);
@@ -74,24 +75,28 @@ export const sachService = {
   },
 
   layChiTiet: (maSach: number) => sachRepository.timTheoMa(prisma, maSach),
+  /** Danh sách sách đang bán để đặt định mức (UC4.2), tối đa 200 dòng. */
+  danhSachDatDinhMuc: (loc: { tuKhoa?: string; sapHet?: boolean }) => sachRepository.danhSach({ ...loc, trangThai: "DANG_BAN" }, 0, 200),
 
   async tao(f: FormSach, maTK: number) {
     const d = await kiemTraSach(f);
-    const sach = await sachRepository.tao({ ...d, soLuongTon: 0, soLuongTamGiu: 0, trangThai: "DANG_BAN" });
-    await nhatKyRepository.ghi({ maTK, module: "SACH", hanhDong: "THEM", noiDung: `#${sach.maSach} ${sach.tenSach} (ISBN ${sach.isbn})` });
+    const sach = Sach.moi(d); // tồn 0, đang bán
+    await sach.luu();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "SACH", hanhDong: "THEM", noiDung: `#${sach.maSach} ${sach.tenSach} (ISBN ${sach.isbn})` });
     return sach;
   },
 
   async capNhat(maSach: number, f: FormSach, maTK: number) {
-    const cu = await sachRepository.timTheoMa(prisma, maSach);
-    if (!cu) throw new LoiNghiepVu("Sách không tồn tại");
+    const sach = await Sach.timTheoMa(maSach);
+    if (!sach) throw new LoiNghiepVu("Sách không tồn tại");
+    const giaCu = { giaNhap: Number(sach.giaNhap), giaBan: Number(sach.giaBan) };
     // UC2.3: không cho sửa ISBN (tránh lỗi tham chiếu) – luôn giữ ISBN cũ
-    const d = await kiemTraSach({ ...f, isbn: cu.isbn }, maSach);
-    await sachRepository.capNhat(maSach, d);
+    const d = await kiemTraSach({ ...f, isbn: sach.isbn }, maSach);
+    await sach.capNhatThongTin(d);
     const thayDoi = (["giaNhap", "giaBan"] as const)
-      .filter((k) => Number(cu[k]) !== d[k])
-      .map((k) => `${k}: ${Number(cu[k])} → ${d[k]}`);
-    await nhatKyRepository.ghi({
+      .filter((k) => giaCu[k] !== d[k])
+      .map((k) => `${k}: ${giaCu[k]} → ${d[k]}`);
+    await NhatKyHeThong.ghiNhatKy({
       maTK, module: "SACH", hanhDong: "SUA", noiDung: `#${maSach} ${d.tenSach}${thayDoi.length ? ` (${thayDoi.join(", ")})` : ""}`,
     });
   },
@@ -110,7 +115,7 @@ export const sachService = {
         "Hãy hoàn tất hoặc hủy các đơn đó trước khi ngừng kinh doanh.",
       );
     }
-    await nhatKyRepository.ghi({
+    await NhatKyHeThong.ghiNhatKy({
       maTK, module: "SACH", hanhDong: trangThai === "DANG_BAN" ? "MO_BAN_LAI" : "NGUNG_KINH_DOANH",
       noiDung: `#${maSach} ${cu.tenSach}`,
     });
@@ -122,7 +127,7 @@ export const sachService = {
    *  Chỉ các ô bắt buộc; ô khác để mặc định (định mức 5, tồn 0). Dùng chung kiểm tra với tao(). */
   async taoNhanh(f: Pick<FormSach, "isbn" | "tenSach" | "tacGia" | "maTL" | "giaNhap" | "giaBan">, maTK: number) {
     const sach = await sachService.tao({ ...f, nhaXuatBan: "", namXB: "", viTriKe: "", dinhMucToiThieu: "", hinhAnh: "" }, maTK);
-    await nhatKyRepository.ghi({ maTK, module: "SACH", hanhDong: "THEM_NHANH", noiDung: `#${sach.maSach} ${sach.tenSach} – tạo nhanh khi lập phiếu nhập` });
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "SACH", hanhDong: "THEM_NHANH", noiDung: `#${sach.maSach} ${sach.tenSach} – tạo nhanh khi lập phiếu nhập` });
     return sach;
   },
 
@@ -134,8 +139,8 @@ export const sachService = {
     const dinhMuc = dinhMucTho.trim() === "" ? NaN : Number(dinhMucTho);
     if (!Number.isInteger(dinhMuc) || dinhMuc < 0 || dinhMuc > 10000)
       throw new LoiNghiepVu("Định mức phải là số nguyên từ 0 đến 10.000", { dinhMuc: "Số nguyên từ 0 đến 10.000" });
-    const soSach = await sachRepository.datDinhMuc(maSachs, dinhMuc);
-    await nhatKyRepository.ghi({ maTK, module: "SACH", hanhDong: "DAT_DINH_MUC", noiDung: `Định mức ${dinhMuc} cho ${soSach} sách: #${maSachs.join(", #")}` });
+    const soSach = await Sach.capNhatDinhMucNhieu(maSachs, dinhMuc);
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "SACH", hanhDong: "DAT_DINH_MUC", noiDung: `Định mức ${dinhMuc} cho ${soSach} sách: #${maSachs.join(", #")}` });
     return soSach;
   },
 
@@ -149,29 +154,32 @@ export const sachService = {
     if (!tenTL) loi.tenTL = "Nhập tên thể loại";
     else if (tenTL.length > 100) loi.tenTL = "Tối đa 100 ký tự";
     else {
-      const trung = await theLoaiRepository.timTheoTen(tenTL);
+      const trung = await TheLoai.timTheoTen(tenTL);
       if (trung && trung.maTL !== maTL) loi.tenTL = "Tên thể loại đã tồn tại";
     }
     if (Object.keys(loi).length) throw new LoiNghiepVu(Object.values(loi).join(". "), loi);
 
     if (maTL === null) {
-      const tl = await theLoaiRepository.tao(tenTL);
-      await nhatKyRepository.ghi({ maTK, module: "THE_LOAI", hanhDong: "THEM", noiDung: tenTL });
+      const tl = TheLoai.moi(tenTL);
+      await tl.luu();
+      await NhatKyHeThong.ghiNhatKy({ maTK, module: "THE_LOAI", hanhDong: "THEM", noiDung: tenTL });
       return tl;
     }
-    const cu = await theLoaiRepository.timTheoMa(maTL);
-    if (!cu) throw new LoiNghiepVu("Thể loại không tồn tại");
-    const tl = await theLoaiRepository.capNhat(maTL, tenTL);
-    await nhatKyRepository.ghi({ maTK, module: "THE_LOAI", hanhDong: "SUA", noiDung: `${cu.tenTL} → ${tenTL}` });
+    const tl = await TheLoai.timTheoMa(maTL);
+    if (!tl) throw new LoiNghiepVu("Thể loại không tồn tại");
+    const tenCu = tl.tenTL;
+    tl.tenTL = tenTL;
+    await tl.luu();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "THE_LOAI", hanhDong: "SUA", noiDung: `${tenCu} → ${tenTL}` });
     return tl;
   },
 
   async xoaTheLoai(maTL: number, maTK: number) {
-    const tl = await theLoaiRepository.timTheoMa(maTL);
+    const tl = await TheLoai.timTheoMa(maTL);
     if (!tl) throw new LoiNghiepVu("Thể loại không tồn tại");
-    const soSach = await theLoaiRepository.demSach(maTL);
+    const soSach = await tl.soSach();
     if (soSach > 0) throw new LoiNghiepVu(`Không xóa được: "${tl.tenTL}" đang có ${soSach} sách`);
-    await theLoaiRepository.xoa(maTL);
-    await nhatKyRepository.ghi({ maTK, module: "THE_LOAI", hanhDong: "XOA", noiDung: tl.tenTL });
+    await tl.xoa();
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "THE_LOAI", hanhDong: "XOA", noiDung: tl.tenTL });
   },
 };

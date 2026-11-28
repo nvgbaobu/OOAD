@@ -4,14 +4,14 @@
 //   tyLeQuyDoiDiem (nếu không khách được hoàn ≥ 100% tiền bằng điểm). Phải bật ít nhất 1 phương thức thanh toán.
 // - Sao lưu: BACKUP DATABASE ra file .bak trong thư mục dữ liệu của SQL Server (volume Docker mssql_data), ghi BanSaoLuu.
 //   Phục hồi: xem lib/services/phucHoiService.ts (UC10.4 – chọn bản sao lưu hoặc tải file .bak lên).
-import { prisma } from "@/lib/prisma";
 import { LoiNghiepVu } from "@/lib/loi";
 import { cauHinhRepository } from "@/lib/repositories/cauHinhRepository";
+import { banSaoLuuRepository } from "@/lib/repositories/banSaoLuuRepository";
 import { nhatKyRepository } from "@/lib/repositories/nhatKyRepository";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { CauHinhHeThong } from "@/lib/thucThe/CauHinhHeThong";
-import { NhatKyHeThong } from "@/lib/thucThe/NhatKyHeThong";
-import { BanSaoLuu, THU_MUC_SAO_LUU } from "@/lib/thucThe/BanSaoLuu";
+import { CauHinhHeThong } from "@/lib/entities/CauHinhHeThong";
+import { NhatKyHeThong } from "@/lib/entities/NhatKyHeThong";
+import { BanSaoLuu, THU_MUC_SAO_LUU } from "@/lib/entities/BanSaoLuu";
 
 export type FormCauHinh = Record<"tenCuaHang" | "diaChi" | "soDienThoai" | "maSoThue" | "logo" | "tyLeQuyDoiDiem" | "giaTriMotDiem", string>
   & { ttTienMat: boolean; ttQuetThe: boolean; ttMaQR: boolean };
@@ -35,6 +35,7 @@ function dieuKienNhatKy(loc: LocNhatKy): Prisma.NhatKyHeThongWhereInput {
 
 export const caiDatService = {
   layCauHinh: () => cauHinhRepository.lay(),
+  tenCuaHang: () => cauHinhRepository.tenCuaHang(),
 
   async luuCauHinh(f: FormCauHinh, maTK: number) {
     const loi: Record<string, string> = {};
@@ -64,7 +65,7 @@ export const caiDatService = {
     const doi = (Object.keys(moi) as (keyof typeof moi)[])
       .filter((k) => String(cu[k] === null ? "" : typeof cu[k] === "object" ? Number(cu[k]) : cu[k]) !== String(moi[k] ?? ""))
       .map((k) => `${k}: ${cu[k] === null ? "–" : typeof cu[k] === "object" ? Number(cu[k]) : cu[k]} → ${moi[k] ?? "–"}`);
-    await nhatKyRepository.ghi({ maTK, module: "CAI_DAT", hanhDong: "SUA", noiDung: doi.join("; ") || "Không thay đổi" });
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "CAI_DAT", hanhDong: "SUA", noiDung: doi.join("; ") || "Không thay đổi" });
   },
 
   // ───────── Nhật ký ─────────
@@ -77,10 +78,10 @@ export const caiDatService = {
     const dong = await nhatKyRepository.traCuu(where, (trangHienTai - 1) * SO_NHAT_KY_MOI_TRANG, SO_NHAT_KY_MOI_TRANG);
     return { dong, tong, soTrang, trang: trangHienTai };
   },
-  cacModuleNhatKy: async () => (await prisma.nhatKyHeThong.findMany({ distinct: ["module"], select: { module: true }, orderBy: { module: "asc" } })).map((x) => x.module),
+  cacModuleNhatKy: () => nhatKyRepository.cacModule(),
 
   // ───────── Sao lưu ─────────
-  danhSachSaoLuu: () => prisma.banSaoLuu.findMany({ include: { taiKhoan: { select: { hoTen: true } } }, orderBy: { maBackup: "desc" }, take: 50 }),
+  danhSachSaoLuu: () => banSaoLuuRepository.danhSach(),
 
   /** hauTo: phần thêm vào tên file (chỉ chữ/số/_), vd "_truocPhucHoi" cho bản sao lưu an toàn khi phục hồi. */
   async saoLuu(maTK: number, hauTo = "") {
@@ -90,7 +91,7 @@ export const caiDatService = {
     } catch (e) {
       throw new LoiNghiepVu(`Sao lưu thất bại: ${e instanceof Error ? e.message.slice(0, 200) : e}`);
     }
-    await NhatKyHeThong.ghiNhatKy(maTK, "CAI_DAT", "SAO_LUU", `${bs.duongDanFile} (${Number(bs.kichThuoc).toLocaleString("vi-VN")} byte)`);
+    await NhatKyHeThong.ghiNhatKy({ maTK, module: "CAI_DAT", hanhDong: "SAO_LUU", noiDung: `${bs.duongDanFile} (${Number(bs.kichThuoc).toLocaleString("vi-VN")} byte)` });
     return bs;
   },
 };

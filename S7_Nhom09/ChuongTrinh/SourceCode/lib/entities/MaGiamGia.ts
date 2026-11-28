@@ -4,7 +4,7 @@ import type { Db } from "@/lib/db";
 import type { Prisma, MaGiamGia as MaGiamGiaModel } from "@/lib/generated/prisma/client";
 import { maGiamGiaRepository } from "@/lib/repositories/maGiamGiaRepository";
 import { tinhGiamMa } from "@/lib/services/tinhTienHoaDon";
-import { KhuyenMai } from "@/lib/thucThe/KhuyenMai";
+import { KhuyenMai } from "@/lib/entities/KhuyenMai";
 
 export class MaGiamGia extends KhuyenMai implements MaGiamGiaModel {
   // ───── Thuộc tính (ngayBatDau, ngayKetThuc, trangThai kế thừa từ KhuyenMai) ─────
@@ -21,6 +21,33 @@ export class MaGiamGia extends KhuyenMai implements MaGiamGiaModel {
   }
 
   // ───── Phương thức ─────
+
+  /** Tìm mã theo khóa chính. */
+  static async timTheoMa(maMGG: number): Promise<MaGiamGia | null> {
+    const d = await maGiamGiaRepository.timTheoMa(maMGG);
+    return d && new MaGiamGia(d);
+  }
+
+  /** Mã mới (chưa lưu): đang hoạt động, chưa dùng lượt nào. */
+  static moi(d: Pick<MaGiamGiaModel, "maCode" | "loaiGiam" | "soLuongToiDa" | "ngayBatDau" | "ngayKetThuc"> & { giaTriGiam: number; giaTriDonToiThieu: number }): MaGiamGia {
+    return Object.assign(Object.create(MaGiamGia.prototype) as MaGiamGia, { maMGG: 0, ...d, daSuDung: 0, trangThai: "HOAT_DONG" });
+  }
+
+  /** Đã được dùng (có lượt hoặc đã gắn vào hóa đơn, kể cả đơn nháp) → không đổi mã code, không xóa. */
+  async daDung(): Promise<boolean> {
+    return this.daSuDung > 0 || (await maGiamGiaRepository.demHoaDon(this.maMGG)) > 0;
+  }
+
+  /** Ngừng / mở lại mã. */
+  async doiTrangThai(hoatDong: boolean): Promise<void> {
+    this.trangThai = hoatDong ? "HOAT_DONG" : "NGUNG_HOAT_DONG";
+    await maGiamGiaRepository.capNhat(this.maMGG, { trangThai: this.trangThai });
+  }
+
+  /** Xóa mã (chỉ khi chưa dùng – service kiểm tra). */
+  async xoa(): Promise<void> {
+    await maGiamGiaRepository.xoa(this.maMGG);
+  }
 
   /** Tìm mã theo chuỗi nhân viên nhập tại quầy (không phân biệt hoa/thường). */
   static async timTheoMaCode(code: string, db: Db = prisma): Promise<MaGiamGia | null> {

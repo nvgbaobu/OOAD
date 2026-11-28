@@ -70,6 +70,11 @@ export const sachRepository = {
   datDinhMuc: (maSachs: number[], dinhMuc: number) =>
     prisma.sach.updateMany({ where: { maSach: { in: maSachs } }, data: { dinhMucToiThieu: dinhMuc } }).then((r) => r.count),
 
+  /** Nhiều sách theo mã (kiểm tra dòng phiếu kho / combo). */
+  timNhieu: (maSachs: number[]) => prisma.sach.findMany({ where: { maSach: { in: maSachs } } }),
+  /** Sách đang bán, gọn (chọn vào combo). */
+  dangBanDeChon: () =>
+    prisma.sach.findMany({ where: { trangThai: "DANG_BAN" }, select: { maSach: true, tenSach: true, giaBan: true }, orderBy: { tenSach: "asc" } }),
   timTheoMa: (db: Db, maSach: number) => db.sach.findUnique({ where: { maSach }, include: { theLoai: true } }),
 
   /** Tăng tạm giữ nếu còn đủ hàng bán được. Trả về true nếu thành công. */

@@ -1,6 +1,6 @@
 // Lớp thực thể ChiTietCombo – Bảng 3.59 (thuộc tính), Bảng 3.60 (phương thức).
 import type { ChiTietCombo as ChiTietComboModel } from "@/lib/generated/prisma/client";
-import type { Sach } from "@/lib/thucThe/Sach";
+import type { Sach } from "@/lib/entities/Sach";
 
 export class ChiTietCombo implements ChiTietComboModel {
   // ───── Thuộc tính ─────

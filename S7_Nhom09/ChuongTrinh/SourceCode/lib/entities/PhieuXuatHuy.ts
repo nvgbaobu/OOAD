@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import type { Db } from "@/lib/db";
 import type { PhieuXuatHuy as PhieuXuatHuyModel, ChiTietXuatHuy as ChiTietXuatHuyModel } from "@/lib/generated/prisma/client";
 import { phieuKhoRepository } from "@/lib/repositories/phieuKhoRepository";
-import { PhieuKho, type DuLieuXuLyPhieu } from "@/lib/thucThe/PhieuKho";
-import { ChiTietXuatHuy } from "@/lib/thucThe/ChiTietPhieuKho";
-import type { Sach } from "@/lib/thucThe/Sach";
+import { PhieuKho, type DuLieuXuLyPhieu } from "@/lib/entities/PhieuKho";
+import { ChiTietXuatHuy } from "@/lib/entities/ChiTietPhieuKho";
+import type { Sach } from "@/lib/entities/Sach";
 
 export class PhieuXuatHuy extends PhieuKho implements PhieuXuatHuyModel {
   // ───── Thuộc tính (maTKLap, maTKDuyet, ngayLap, ngayDuyet, trangThai, ghiChu, lyDoTuChoi kế thừa từ PhieuKho) ─────

@@ -23,6 +23,33 @@ export class NhaCungCap implements NhaCungCapModel {
     return this.trangThaiHopTac === "DANG_GIAO_DICH";
   }
 
+  /** Chuyển trạng thái hợp tác (Đang giao dịch / Ngừng giao dịch). */
+  async capNhatTrangThai(tt: "DANG_GIAO_DICH" | "NGUNG_GIAO_DICH"): Promise<void> {
+    await nhaCungCapRepository.capNhat(this.maNCC, { trangThaiHopTac: tt });
+    this.trangThaiHopTac = tt;
+  }
+
+  /** Số phiếu nhập của nhà cung cấp – đã có phiếu thì không xóa được, chỉ ngừng giao dịch. */
+  soPhieuNhap(): Promise<number> {
+    return nhaCungCapRepository.demPhieuNhap(this.maNCC);
+  }
+
+  /** Xóa nhà cung cấp. */
+  async xoa(): Promise<void> {
+    await nhaCungCapRepository.xoa(this.maNCC);
+  }
+
+  /** Nhà cung cấp mới (chưa lưu). */
+  static moi(d: Omit<NhaCungCapModel, "maNCC">): NhaCungCap {
+    return new NhaCungCap({ maNCC: 0, ...d });
+  }
+
+  /** Tìm nhà cung cấp theo mã số thuế. */
+  static async timTheoMST(mst: string): Promise<NhaCungCap | null> {
+    const d = await nhaCungCapRepository.timTheoMaSoThue(mst);
+    return d && new NhaCungCap(d);
+  }
+
   /** Mã số thuế đã thuộc nhà cung cấp khác chưa (bỏ qua nhà cung cấp đang sửa). */
   static async kiemTraTrungMST(mst: string, boQuaMaNCC?: number): Promise<boolean> {
     const d = await nhaCungCapRepository.timTheoMaSoThue(mst);
